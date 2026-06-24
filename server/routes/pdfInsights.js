@@ -331,8 +331,11 @@ router.post(
       // Convert PDF buffer to base64
       const base64Pdf = `data:application/pdf;base64,${pdfFile.buffer.toString("base64")}`;
 
-      // Create a URL-safe slug from the title for the PDF filename
-      const pdfSlug = slugify(title);
+      // Include publish date in slug so PDFs with identical titles get unique slugs
+      const dateForSlug = publishDate
+        ? new Date(publishDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
+      const pdfSlug = slugify(`${title}-${dateForSlug}`);
       console.log("  - PDF Slug/Filename:", pdfSlug);
 
       // Upload to Cloudinary with deterministic naming and inline viewing support.
@@ -383,6 +386,7 @@ router.post(
       // Create insight document
       const insightData = {
         title,
+        slug: pdfSlug,
         excerpt,
         author: author || "Unknown Author",
         category: category || "General",
@@ -411,7 +415,7 @@ router.post(
       if (error.code === 11000) {
         return res.status(400).json({
           success: false,
-          message: "An insight with this title already exists",
+          message: "An insight with this title and date already exists. Try a different publish date or override the title.",
         });
       }
 

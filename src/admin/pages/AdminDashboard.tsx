@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Eye, Edit, Trash2, Star, Globe, Clock, LogOut, Upload } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, Star, Globe, Clock, LogOut, Upload, CheckSquare, Square } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { insightsService, Insight } from '../services/insightsService';
 import { authService } from '../services/authService';
 import { AdminSetup } from '../components/AdminSetup';
 import PDFInsightUploader from '../components/PDFInsightUploader';
+import BulkPDFUploader from '../components/BulkPDFUploader';
 import { getApiUrl } from '../../config/apiConfig';
 
 export const AdminDashboard = () => {
@@ -15,12 +16,16 @@ export const AdminDashboard = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [showUploader, setShowUploader] = useState(false);
+  const [showBulkUploader, setShowBulkUploader] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { user, logout } = useAuth();
   const [authError, setAuthError] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const loadInsights = async () => {
     try {
@@ -147,6 +152,67 @@ export const AdminDashboard = () => {
     }
   };
 
+  const toggleSelectInsight = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === paginatedInsights.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(paginatedInsights.map(i => i._id || i.id || '')));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.size} insight${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`)) return;
+
+    setBulkDeleting(true);
+    const apiUrl = getApiUrl();
+    const token = authService.getToken();
+    const errors: string[] = [];
+
+    for (const id of selectedIds) {
+      const insight = insights.find(i => (i._id || i.id) === id);
+      const isPDF = !!insight?.pdfUrl;
+      try {
+        if (isPDF) {
+          const response = await fetch(`${apiUrl}/pdf-insights/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+          });
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.message || 'Delete failed');
+          }
+        } else {
+          const result = await insightsService.deleteInsight(id);
+          if (!result.success) throw new Error(result.message || 'Delete failed');
+        }
+      } catch (e) {
+        errors.push(id);
+      }
+    }
+
+    if (errors.length === 0) {
+      setSuccessMessage(`${selectedIds.size} insight${selectedIds.size > 1 ? 's' : ''} deleted successfully!`);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } else {
+      setErrorMessage(`${errors.length} deletion${errors.length > 1 ? 's' : ''} failed. Please try again.`);
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+
+    setSelectedIds(new Set());
+    setIsSelecting(false);
+    setBulkDeleting(false);
+    await loadInsights();
+  };
+
   const handleUploadSuccess = (insight: any) => {
     setSuccessMessage(`PDF insight "${insight.title}" uploaded successfully!`);
     setShowUploader(false);
@@ -237,6 +303,27 @@ export const AdminDashboard = () => {
             </div>
             <div className="flex items-center gap-4">
               <button
+                onClick={() => {
+                  setIsSelecting(s => !s);
+                  setSelectedIds(new Set());
+                }}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                  isSelecting
+                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200'
+                    : 'border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+              >
+                <CheckSquare className="w-4 h-4" />
+                {isSelecting ? 'Cancel' : 'Select'}
+              </button>
+              <button
+                onClick={() => setShowBulkUploader(true)}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                Bulk Upload
+              </button>
+              <button
                 onClick={() => setShowUploader(true)}
                 className="px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 transition-colors flex items-center gap-2"
               >
@@ -309,6 +396,50 @@ export const AdminDashboard = () => {
                 onUploadSuccess={handleUploadSuccess}
                 onUploadError={handleUploadError}
                 initialCategories={categories.filter(category => category !== 'all')}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Bulk PDF Uploader Modal */}
+        {showBulkUploader && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Bulk Upload PDFs</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Upload multiple PDFs at once with individual titles and dates</p>
+                </div>
+                <button
+                  onClick={() => setShowBulkUploader(false)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                >
+                  ✕
+                </button>
+              </div>
+              <BulkPDFUploader
+                initialCategories={categories.filter(c => c !== 'all')}
+                onCancel={() => setShowBulkUploader(false)}
+                onComplete={(successCount, errorCount) => {
+                  if (successCount > 0) {
+                    setSuccessMessage(`${successCount} PDF${successCount > 1 ? 's' : ''} uploaded successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+                    setTimeout(() => setSuccessMessage(null), 5000);
+                    loadInsights();
+                  }
+                  if (errorCount > 0 && successCount === 0) {
+                    setErrorMessage(`All ${errorCount} uploads failed. Please try again.`);
+                    setTimeout(() => setErrorMessage(null), 5000);
+                  }
+                  if (successCount > 0) setShowBulkUploader(false);
+                }}
               />
             </motion.div>
           </motion.div>
@@ -468,6 +599,43 @@ export const AdminDashboard = () => {
           )}
         </div>
 
+        {/* Bulk action bar */}
+        {isSelecting && (
+          <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl px-5 py-3 shadow-sm mb-4 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                {selectedIds.size === paginatedInsights.length && paginatedInsights.length > 0
+                  ? <CheckSquare className="w-4 h-4 text-accent-600" />
+                  : <Square className="w-4 h-4" />
+                }
+                {selectedIds.size === paginatedInsights.length && paginatedInsights.length > 0
+                  ? 'Deselect all'
+                  : 'Select all on page'}
+              </button>
+              {selectedIds.size > 0 && (
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  {selectedIds.size} selected
+                </span>
+              )}
+            </div>
+            <button
+              onClick={handleBulkDelete}
+              disabled={selectedIds.size === 0 || bulkDeleting}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            >
+              {bulkDeleting ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              {bulkDeleting ? 'Deleting...' : `Delete${selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}`}
+            </button>
+          </div>
+        )}
+
         {/* Insights List */}
         {loading ? (
           <div className="flex justify-center py-12">
@@ -481,9 +649,22 @@ export const AdminDashboard = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: index * 0.05 }}
-                className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm"
+                className={`bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm transition-colors ${
+                  isSelecting && selectedIds.has(insight._id || insight.id || '') ? 'ring-2 ring-accent-500' : ''
+                }`}
               >
                 <div className="flex items-start justify-between">
+                  {isSelecting && (
+                    <button
+                      className="mr-4 mt-1 flex-shrink-0"
+                      onClick={() => toggleSelectInsight(insight._id || insight.id || '')}
+                    >
+                      {selectedIds.has(insight._id || insight.id || '')
+                        ? <CheckSquare className="w-5 h-5 text-accent-600" />
+                        : <Square className="w-5 h-5 text-slate-400 hover:text-slate-600" />
+                      }
+                    </button>
+                  )}
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
