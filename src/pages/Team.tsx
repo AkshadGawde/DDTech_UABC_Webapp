@@ -200,19 +200,19 @@ export const Team = () => {
                 </p>
               </div>
 
-              {/* Card grid: all members shown at once, wraps and centers incomplete rows */}
-              <div className="mt-6 flex flex-wrap justify-center gap-5">
+              {/* Card grid: 2x2 on phone, wraps and centers incomplete rows up to 4 per row on desktop */}
+              <div className="mt-6 flex flex-wrap justify-center gap-4 sm:gap-5">
                 {TEAM_MEMBERS.map((member, i) => (
                   <div
                     key={member.id}
-                    className="flex flex-col items-center shrink-0 basis-full sm:basis-[calc(50%-0.625rem)] lg:basis-[calc(25%-0.9375rem)]"
+                    className="flex flex-col items-center shrink-0 basis-[calc(50%-0.5rem)] sm:basis-[calc(50%-0.625rem)] lg:basis-[calc(25%-0.9375rem)]"
                   >
                     <motion.button
                       type="button"
                       layoutId={`photo-${member.id}`}
                       onClick={() => openDetail(i)}
                       aria-label={`View ${member.firstName} ${member.lastName}'s profile`}
-                      className="relative w-full max-w-xs h-56 sm:h-64 md:h-72 rounded-2xl overflow-hidden cursor-pointer shadow-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-dark-bg"
+                      className="relative w-full max-w-xs h-36 sm:h-56 md:h-64 lg:h-72 rounded-2xl overflow-hidden cursor-pointer shadow-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-dark-bg"
                     >
                       <MemberPhoto member={member} initialsClassName="text-4xl text-white/90" />
                     </motion.button>
@@ -288,8 +288,8 @@ export const Team = () => {
                 </motion.div>
 
                 <div className="relative bg-brand-50 dark:bg-dark-card p-5 md:p-8 flex flex-col justify-between min-h-[220px] md:min-h-[360px]">
-                  <div className="flex justify-between items-start gap-6">
-                    <div className="max-w-sm space-y-3 text-base md:text-lg text-slate-700 dark:text-slate-300 leading-relaxed">
+                  <div className="flex flex-col sm:flex-row sm:justify-between items-center sm:items-start gap-5 sm:gap-6">
+                    <div className="w-full sm:max-w-sm space-y-3 text-sm sm:text-base md:text-lg text-slate-700 dark:text-slate-300 leading-relaxed">
                       {active.bio
                         ? active.bio.split('\n\n').map((paragraph, idx) => <p key={idx}>{paragraph}</p>)
                         : <p>Bio coming soon.</p>}
