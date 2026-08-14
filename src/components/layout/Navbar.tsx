@@ -68,6 +68,7 @@ export const Navbar = ({ isDark, toggleTheme }: NavbarProps) => {
         { name: 'Overview', path: '/about' },
         { name: 'Our Approach', path: '/about/approach' },
         { name: 'Management', path: '/about/management' },
+        { name: 'Our Team', path: '/team' },
         { name: 'Success Stories', path: '/about/success-stories' }
       ]
     },

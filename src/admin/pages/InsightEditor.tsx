@@ -34,6 +34,7 @@ export const InsightEditor = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [pdfInsight, setPdfInsight] = useState<any>(null);
   const [pdfEditData, setPdfEditData] = useState({
+    title: '',
     image: '',
     category: '',
     publishDate: ''
@@ -47,56 +48,38 @@ export const InsightEditor = () => {
 
   const loadInsight = async () => {
     if (!id) return;
-    
+
     try {
       setLoading(true);
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://uabc-backend.onrender.com/api';
-      const token = localStorage.getItem('token');
-      
-      // First try to fetch as a PDF insight
-      try {
-        const pdfResponse = await fetch(`${apiUrl}/pdf-insights/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (pdfResponse.ok) {
-          const pdfData = await pdfResponse.json();
-          if (pdfData.success && pdfData.data) {
-            // This is a PDF insight - show PDF details UI
-            setPdfInsight(pdfData.data);
-            setPdfEditData({
-              image: pdfData.data.image || '',
-              category: pdfData.data.category || 'Technology',
-              publishDate: pdfData.data.publishDate 
-                ? new Date(pdfData.data.publishDate).toISOString().split('T')[0]
-                : new Date().toISOString().split('T')[0]
-            });
-            return;
-          }
-        }
-      } catch (pdfError) {
-        // Not a PDF insight, try regular insight
-        console.log('Not a PDF insight, trying regular insight...');
-      }
-      
-      // Try to fetch as regular insight
+
       const insight = await insightsService.getInsight(id, true);
-      
-      if (insight) {
-        setFormData({
-          category: insight.category,
-          title: insight.title,
-          excerpt: insight.excerpt,
-          content: insight.content,
-          image: insight.image,
-          author: insight.author,
-          featured: insight.featured,
-          published: insight.published
+
+      if (!insight) return;
+
+      if (insight.pdfUrl) {
+        // This is a PDF insight - show PDF details UI
+        setPdfInsight(insight);
+        setPdfEditData({
+          title: insight.title || '',
+          image: insight.featuredImage || '',
+          category: insight.category || 'Technology',
+          publishDate: insight.publishDate
+            ? new Date(insight.publishDate).toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0]
         });
+        return;
       }
+
+      setFormData({
+        category: insight.category,
+        title: insight.title,
+        excerpt: insight.excerpt,
+        content: insight.content || '',
+        image: insight.image || insight.featuredImage || '',
+        author: insight.author,
+        featured: insight.featured,
+        published: insight.published
+      });
     } catch (error) {
       console.error('Failed to load insight:', error);
     } finally {
@@ -148,28 +131,27 @@ export const InsightEditor = () => {
 
   const handleSavePdfEdit = async () => {
     if (!id || !pdfInsight) return;
-    
+
+    if (!pdfEditData.title.trim()) {
+      alert('Title cannot be empty');
+      return;
+    }
+
     try {
       setSaving(true);
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://uabc-backend.onrender.com/api';
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${apiUrl}/pdf-insights/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(pdfEditData)
+
+      const res = await insightsService.updateInsight(id, {
+        title: pdfEditData.title.trim(),
+        category: pdfEditData.category,
+        publishDate: new Date(pdfEditData.publishDate).toISOString(),
+        featuredImage: pdfEditData.image || undefined
       });
-      
-      const data = await response.json();
-      
-      if (data.success) {
+
+      if (res.success) {
         alert('PDF insight updated successfully!');
         navigate('/admin');
       } else {
-        alert(data.message || 'Failed to update PDF insight');
+        alert(res.message || 'Failed to update PDF insight');
       }
     } catch (error) {
       console.error('Failed to save PDF insight:', error);
@@ -248,7 +230,7 @@ export const InsightEditor = () => {
               </div>
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {pdfInsight.title}
+                  {pdfEditData.title || pdfInsight.title}
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   PDF Document
@@ -263,6 +245,23 @@ export const InsightEditor = () => {
                   <p className="text-sm font-medium text-accent-600 dark:text-accent-400 mb-3">
                     ✏️ Editable Fields
                   </p>
+                </div>
+
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <FileText className="w-4 h-4 inline mr-2" />
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={pdfEditData.title}
+                    onChange={handlePdfEditChange}
+                    maxLength={200}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-accent-500 focus:border-transparent"
+                    placeholder="Insight title..."
+                  />
                 </div>
 
                 {/* Category */}
@@ -354,7 +353,7 @@ export const InsightEditor = () => {
                       File Name
                     </div>
                     <p className="text-slate-900 dark:text-white font-mono text-sm bg-slate-100 dark:bg-slate-700 px-3 py-2 rounded">
-                      {pdfInsight.pdfFilename || 'N/A'}
+                      {pdfInsight.pdfOriginalFilename || 'N/A'}
                     </p>
                   </div>
 
@@ -381,7 +380,7 @@ export const InsightEditor = () => {
               <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
                   <p className="text-sm text-blue-800 dark:text-blue-300">
-                    <strong>Note:</strong> You can only edit the category, publish date, and preview image. To update the PDF content itself, delete this insight and re-upload a new PDF file.
+                    <strong>Note:</strong> You can edit the title, category, publish date, and preview image. To update the PDF content itself, delete this insight and re-upload a new PDF file.
                   </p>
                 </div>
 

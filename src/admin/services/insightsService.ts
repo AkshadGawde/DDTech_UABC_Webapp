@@ -20,6 +20,7 @@ export interface Insight {
   featuredImage?: string;
   published: boolean;
   featured?: boolean;
+  publishDate?: string;
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;

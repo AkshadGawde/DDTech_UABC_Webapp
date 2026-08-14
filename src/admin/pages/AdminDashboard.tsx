@@ -248,7 +248,7 @@ export const AdminDashboard = () => {
   const handleEditPDF = (insight: any) => {
     // Navigate to edit page which will show proper PDF editing interface
     const id = insight._id || insight.id;
-    window.location.href = `/admin/insights/${id}/edit`;
+    window.location.href = `/admin/insights/edit/${id}`;
   };
 
   const ITEMS_PER_PAGE = 20;
@@ -722,6 +722,14 @@ export const AdminDashboard = () => {
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
+                          onClick={() => handleEditPDF(insight)}
+                          disabled={deletingId === (insight._id || insight.id)}
+                          className="p-2 text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Edit"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleToggleFeatured(insight._id || insight.id || '')}
                           disabled={deletingId === (insight._id || insight.id) || togglingId === (insight._id || insight.id)}
                           className={`p-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -770,14 +778,14 @@ export const AdminDashboard = () => {
                       // Regular insight actions
                       <>
                         <a
-                          href={`/admin/insights/${insight.id}/preview`}
+                          href={`/admin/insights/preview/${insight.id}`}
                           className="p-2 text-slate-400 hover:text-accent-600 transition-colors"
                           title="Preview"
                         >
                           <Eye className="w-4 h-4" />
                         </a>
                         <a
-                          href={`/admin/insights/${insight.id}/edit`}
+                          href={`/admin/insights/edit/${insight.id}`}
                           className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
                           title="Edit"
                         >
