@@ -157,6 +157,25 @@ const extractPublicIdFromPdfUrl = (url) => {
   return normalizePdfPublicId(match ? match[1] : "");
 };
 
+// Cloudinary's free plan gives 25 credits/month (storage + bandwidth + transformations
+// combined). We pause new uploads once usage crosses this ceiling so a burst of activity
+// doesn't push the account into overage.
+const CLOUDINARY_CREDIT_CEILING = Number(process.env.CLOUDINARY_CREDIT_CEILING) || 20;
+const CLOUDINARY_CREDIT_PLAN_LIMIT = 25;
+
+const getCloudinaryCreditsUsed = async () => {
+  const usage = await cloudinary.api.usage();
+  if (typeof usage?.credits?.usage === "number") {
+    return usage.credits.usage;
+  }
+  // Older/self-hosted plans don't report a combined `credits` field - derive it.
+  return (
+    (usage?.storage?.credits_usage || 0) +
+    (usage?.bandwidth?.credits_usage || 0) +
+    (usage?.transformations?.credits_usage || 0)
+  );
+};
+
 const getInlinePdfUrl = ({ publicId, version }) => {
   return cloudinary.url(normalizePdfPublicId(publicId), {
     resource_type: "raw",
@@ -281,6 +300,26 @@ router.post(
           success: false,
           message: "PDF file is required",
         });
+      }
+
+      console.log("📊 Checking Cloudinary credit usage...");
+      try {
+        const creditsUsed = await getCloudinaryCreditsUsed();
+        console.log(
+          `  - Credits used: ${creditsUsed.toFixed(2)} / ${CLOUDINARY_CREDIT_PLAN_LIMIT} (ceiling: ${CLOUDINARY_CREDIT_CEILING})`,
+        );
+        if (creditsUsed >= CLOUDINARY_CREDIT_CEILING) {
+          console.log("❌ Cloudinary credit ceiling reached, blocking upload");
+          return res.status(507).json({
+            success: false,
+            message: `Cloudinary usage is at ${creditsUsed.toFixed(1)}/${CLOUDINARY_CREDIT_PLAN_LIMIT} credits. Uploads are paused to stay under the monthly limit - delete unused PDFs or wait for next month's reset.`,
+          });
+        }
+      } catch (usageCheckError) {
+        console.error(
+          "⚠️  Could not verify Cloudinary usage, proceeding with upload:",
+          usageCheckError.message,
+        );
       }
 
       const { featuredImage, publishDate, category, customTitle } = req.body;

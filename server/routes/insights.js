@@ -125,7 +125,8 @@ router.get("/", async (req, res) => {
 
     // Add category filter if provided and not 'All'
     if (category && category !== 'All') {
-      query.category = category;
+      const escapedCategory = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.category = { $regex: `^${escapedCategory}$`, $options: 'i' };
     }
 
     // Add search filter if provided

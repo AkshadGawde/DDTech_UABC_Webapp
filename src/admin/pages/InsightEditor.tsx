@@ -175,6 +175,20 @@ export const InsightEditor = () => {
     }
   };
 
+  const handlePdfImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPdfEditData(prev => ({
+          ...prev,
+          image: e.target?.result as string
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
@@ -297,31 +311,54 @@ export const InsightEditor = () => {
                   />
                 </div>
 
-                {/* Image Link */}
+                {/* Image */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                     <Upload className="w-4 h-4 inline mr-2" />
-                    Image URL (for preview card)
+                    Image (for preview card)
                   </label>
-                  <input
-                    type="url"
-                    name="image"
-                    value={pdfEditData.image}
-                    onChange={handlePdfEditChange}
-                    placeholder="https://example.com/image.jpg"
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-accent-500 focus:border-transparent"
-                  />
+                  <div className="flex gap-4">
+                    <input
+                      type="url"
+                      name="image"
+                      value={pdfEditData.image}
+                      onChange={handlePdfEditChange}
+                      placeholder="Image URL or upload file..."
+                      className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-accent-500 focus:border-transparent"
+                    />
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePdfImageUpload}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
+                      <button
+                        type="button"
+                        className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-2 h-full"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Upload
+                      </button>
+                    </div>
+                  </div>
                   {pdfEditData.image && (
-                    <div className="mt-3">
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Preview:</p>
-                      <img 
-                        src={pdfEditData.image} 
-                        alt="Preview" 
+                    <div className="mt-3 relative inline-block">
+                      <img
+                        src={pdfEditData.image}
+                        alt="Preview"
                         className="w-full h-48 object-cover rounded-lg border border-slate-200 dark:border-slate-700"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Invalid+Image';
                         }}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setPdfEditData(prev => ({ ...prev, image: '' }))}
+                        className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </div>
                   )}
                 </div>
