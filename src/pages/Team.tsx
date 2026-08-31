@@ -39,7 +39,7 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '7+', label: 'Years of Experience' },
       { value: '8', label: 'Actuarial Papers Cleared' },
     ],
-    image: '/public/Hrishikesh.jpg',
+    image: '/Hrishikesh.jpg',
   },
   {
     id: 'aditya-ghate',
