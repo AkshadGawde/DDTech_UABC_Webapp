@@ -284,7 +284,7 @@ Turning Complexity                <span className="block text-accent-600 dark:te
               </h2>
 
               <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8">
-                At Universal Actuaries and Benefit Consultants (UABC), we empower organizations to make confident, future-ready decisions through rigorous analysis and ethical advisory practices. Our approach blends technical precision with a deep understanding of business realities, ensuring solutions that are practical, transparent, and value focused.
+                At Universal Actuaries and Consultants LLP (UABC), we empower organizations to make confident, future-ready decisions through rigorous analysis and ethical advisory practices. Our approach blends technical precision with a deep understanding of business realities, ensuring solutions that are practical, transparent, and value focused.
                 <br/>
                 <br/>
                 We believe actuarial science is more than numbers — it is about responsibility, trust, and long-term impact.

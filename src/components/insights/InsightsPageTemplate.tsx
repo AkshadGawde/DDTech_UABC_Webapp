@@ -238,17 +238,9 @@ export const InsightsPageTemplate = ({ pageTitle, category }: InsightsPageTempla
 
                     {/* Meta */}
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 mb-4">
-                      {insight.author && (
-                        <>
-                          Posted by{' '}
-                          <span className="text-accent-600 dark:text-accent-400 font-medium">
-                            {insight.author}
-                          </span>{' '}
-                        </>
-                      )}
                       {insightDate && (
                         <>
-                          on{' '}
+                          Posted on{' '}
                           <span className="font-medium text-slate-600 dark:text-slate-300">
                             {insightDate}
                           </span>

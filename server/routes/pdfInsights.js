@@ -105,22 +105,128 @@ const extractTitleFromPdf = (text) => {
   return "";
 };
 
-// Helper function to generate excerpt from PDF text
-const generateExcerpt = (text) => {
-  const cleaned = text
-    .replace(/\s+/g, " ") // Normalize whitespace
-    .replace(/[^\w\s.,!?-]/g, "") // Remove special chars
+// Render a single PDF page to text (mirrors pdf-parse's default page renderer).
+const renderPageToText = (pageData) =>
+  pageData
+    .getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false })
+    .then((textContent) => {
+      let lastY;
+      let text = "";
+      for (const item of textContent.items) {
+        if (lastY === item.transform[5] || !lastY) {
+          text += item.str;
+        } else {
+          text += "\n" + item.str;
+        }
+        lastY = item.transform[5];
+      }
+      return text;
+    });
+
+// Parse a PDF once, keeping per-page text so the excerpt can be pulled from a
+// specific page (page 1 is usually a boilerplate cover/branding page).
+const parsePdf = async (buffer) => {
+  const pages = [];
+  const data = await pdfParse(buffer, {
+    pagerender: (pageData) =>
+      renderPageToText(pageData).then((text) => {
+        pages.push(text);
+        return text;
+      }),
+  });
+  return { text: data.text || "", pages, numpages: data.numpages || pages.length };
+};
+
+// Lines we never want to see in an excerpt - running headers, contact strips,
+// tables of contents, confidentiality notices, etc.
+const EXCERPT_BOILERPLATE_PATTERNS = [
+  /^page\s+\d+(?:\s+of\s+\d+)?$/i,
+  /^contents?$/i,
+  /^table\s+of\s+contents$/i,
+  /^index$/i,
+  /^introduction$/i,
+  /[\w.+-]+@[\w-]+\.[\w.-]+/i, // email address
+  /(?:^|\s)(?:www\.[\w.-]+|https?:\/\/\S+)/i, // URLs
+  /universal\s+actuaries/i, // company name / branding
+  /benefit\s+consultants?/i,
+  /consulting\s+actuary/i,
+  /\b(?:FIAI|FIA|IAI|IFoA)\b/, // actuarial credential lines
+  /^proprietary\s*&?\s*confidential$/i,
+  /^confidential$/i,
+  /^\s*[-_.•]+\s*$/, // rule / bullet-only lines
+  /\.{3,}\s*\d*$/, // dotted-leader TOC entries: "Introduction .......... 3"
+];
+
+const countMatches = (str, re) => (str.match(re) || []).length;
+
+// Build a clean 2-3 line summary from a single PDF page.
+const buildExcerptFromPage = (pageText, title) => {
+  if (!pageText) return "";
+
+  const titleNorm = (title || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+  const kept = pageText
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => {
+      if (line.length < 3) return false;
+      const lower = line.toLowerCase();
+      if (titleNorm && titleNorm.length >= 6 && lower.includes(titleNorm)) return false;
+      if (EXCERPT_BOILERPLATE_PATTERNS.some((re) => re.test(line))) return false;
+      // Drop phone / date / reference clutter (digit-heavy, letter-light lines).
+      if (countMatches(line, /\d/g) >= 7 && countMatches(line, /[a-z]/gi) < 15) return false;
+      return true;
+    });
+
+  return kept
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .replace(/^[^A-Za-z0-9]+/, "")
     .trim();
+};
 
-  if (cleaned.length <= 300) return cleaned;
+// Generate the excerpt from the PDF, preferring page 2 (real content) over the
+// branding-heavy first page, with sensible fallbacks.
+const generateExcerpt = (parsed, title) => {
+  const pages = parsed.pages || [];
+  const candidates = [pages[1], pages[2], pages[0], parsed.text].filter(Boolean);
 
-  // Find a good break point near 300 chars
-  const truncated = cleaned.substring(0, 300);
-  const lastSpace = truncated.lastIndexOf(" ");
+  let chosen = "";
+  for (const candidate of candidates) {
+    const built = buildExcerptFromPage(candidate, title);
+    if (!chosen && built) chosen = built;
+    if (built && built.length >= 40) {
+      chosen = built;
+      break;
+    }
+  }
 
-  return lastSpace > 200
-    ? truncated.substring(0, lastSpace) + "..."
-    : truncated + "...";
+  // Last-resort fallback: lightly cleaned raw text so the brief is never blank
+  // (e.g. a single-page PDF that is all branding/contact info).
+  if (!chosen) {
+    const titleNorm = (title || "").toLowerCase().replace(/\s+/g, " ").trim();
+    let raw = (parsed.text || pages[0] || "").replace(/\s+/g, " ").trim();
+    if (titleNorm && raw.toLowerCase().startsWith(titleNorm)) {
+      raw = raw.slice(titleNorm.length).trim();
+    }
+    chosen = raw.replace(/^[^A-Za-z0-9]+/, "").trim();
+  }
+
+  if (!chosen) return "";
+
+  const LIMIT = 280;
+  if (chosen.length <= LIMIT) return chosen;
+
+  const slice = chosen.slice(0, LIMIT);
+  const lastStop = Math.max(
+    slice.lastIndexOf(". "),
+    slice.lastIndexOf("! "),
+    slice.lastIndexOf("? "),
+  );
+  if (lastStop > 140) return slice.slice(0, lastStop + 1).trim();
+
+  const lastSpace = slice.lastIndexOf(" ");
+  return (lastSpace > 140 ? slice.slice(0, lastSpace) : slice).trim() + "…";
 };
 
 // Helper function to create a URL-safe slug from text
@@ -328,15 +434,18 @@ router.post(
 
       console.log("📖 Parsing PDF content...");
 
-      // Parse PDF to extract text
+      // Parse PDF to extract text (keeping per-page text for the excerpt)
       let pdfText = "";
+      let parsedPdf = { text: "", pages: [] };
       try {
-        const pdfData = await pdfParse(pdfFile.buffer);
-        pdfText = pdfData.text;
+        parsedPdf = await parsePdf(pdfFile.buffer);
+        pdfText = parsedPdf.text;
         console.log(
           "✅ PDF parsed successfully:",
           pdfText.length,
-          "characters",
+          "characters,",
+          parsedPdf.pages.length,
+          "pages",
         );
       } catch (pdfError) {
         console.error("❌ PDF parsing error:", pdfError);
@@ -358,7 +467,7 @@ router.post(
       const extractedTitle = extractTitleFromPdf(pdfText);
       const fallbackFilenameTitle = cleanPdfTitle(pdfFile.originalname);
       const title = providedTitle || extractedTitle || fallbackFilenameTitle || "Untitled Insight";
-      const excerpt = generateExcerpt(pdfText);
+      const excerpt = generateExcerpt(parsedPdf, title);
       const author = extractAuthorFromPdf(pdfText);
 
       console.log("📝 Extracted metadata:");
@@ -610,3 +719,9 @@ router.get("/:id/pdf", async (req, res) => {
 });
 
 module.exports = router;
+
+// Exported for reuse by maintenance scripts (e.g. scripts/regenerateExcerpts.js)
+module.exports.parsePdf = parsePdf;
+module.exports.generateExcerpt = generateExcerpt;
+module.exports.extractTitleFromPdf = extractTitleFromPdf;
+module.exports.cleanPdfTitle = cleanPdfTitle;

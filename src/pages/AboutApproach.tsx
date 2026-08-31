@@ -87,7 +87,7 @@ export const AboutApproach = () => {
             className="text-center max-w-4xl mx-auto relative z-10"
           >
             {/* <div className="text-accent-600 dark:text-accent-500 font-bold tracking-widest uppercase mb-4 text-sm">
-              About Universal Actuaries and Benefit Consultants
+              About Universal Actuaries and Consultants LLP
             </div> */}
             <h1 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 text-slate-900 dark:text-white">
               Our 

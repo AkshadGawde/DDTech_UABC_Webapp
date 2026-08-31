@@ -45,15 +45,12 @@ export const PdfViewerModal = ({ pdfViewer, onClose, onRetry, onCopyLink }: PdfV
                 <h2 className="text-base md:text-lg font-bold text-slate-900 dark:text-white leading-snug line-clamp-2">
                   {pdfViewer.insight?.title}
                 </h2>
-                {(pdfViewer.insight?.author || pdfViewer.insight?.publishDate || pdfViewer.insight?.publishedAt) && (
+                {(pdfViewer.insight?.publishDate || pdfViewer.insight?.publishedAt) && (
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {pdfViewer.insight?.author && (
-                      <span className="font-medium text-accent-600 dark:text-accent-400">
-                        {pdfViewer.insight.author}
-                      </span>
-                    )}
-                    {pdfViewer.insight?.author && (pdfViewer.insight?.publishDate || pdfViewer.insight?.publishedAt) && ' · '}
-                    {formatInsightDate(getInsightDate(pdfViewer.insight!))}
+                    Posted on{' '}
+                    <span className="font-medium text-slate-600 dark:text-slate-300">
+                      {formatInsightDate(getInsightDate(pdfViewer.insight!))}
+                    </span>
                   </p>
                 )}
               </div>

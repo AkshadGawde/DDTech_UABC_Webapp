@@ -101,7 +101,7 @@ export const Footer = () => {
             </div>
 
             <p className="text-slate-500 text-sm leading-relaxed">
-              Universal Actuaries is a premier consulting firm dedicated to providing
+              Universal Actuaries and Consultants LLP is a premier consulting firm dedicated to providing
               top-tier actuarial and strategic solutions globally.
             </p>
           </div>
@@ -194,7 +194,7 @@ export const Footer = () => {
 
         {/* BOTTOM BAR */}
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-          <div>© 2018 Universal Actuaries. All rights reserved.</div>
+          <div>© 2018 Universal Actuaries and Consultants LLP. All rights reserved.</div>
 
           <div className="flex gap-6">
             <a href="#" className="hover:text-white">Privacy Policy</a>

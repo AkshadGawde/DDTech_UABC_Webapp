@@ -39,7 +39,7 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '7+', label: 'Years of Experience' },
       { value: '8', label: 'Actuarial Papers Cleared' },
     ],
-    image: '/public/user1.png',
+    image: '/public/Hrishikesh.jpg',
   },
   {
     id: 'aditya-ghate',
@@ -289,7 +289,7 @@ export const Team = () => {
 
                 <div className="relative bg-brand-50 dark:bg-dark-card p-5 md:p-8 flex flex-col justify-between min-h-[220px] md:min-h-[360px]">
                   <div className="flex flex-col sm:flex-row sm:justify-between items-center sm:items-start gap-5 sm:gap-6">
-                    <div className="w-full sm:max-w-sm space-y-3 text-sm sm:text-base md:text-lg text-slate-700 dark:text-slate-300 leading-relaxed">
+                    <div className="team-bio-scroll w-full sm:max-w-sm space-y-3 text-sm sm:text-base md:text-lg text-slate-700 dark:text-slate-300 leading-relaxed md:max-h-[440px] md:overflow-y-auto md:pr-3">
                       {active.bio
                         ? active.bio.split('\n\n').map((paragraph, idx) => <p key={idx}>{paragraph}</p>)
                         : <p>Bio coming soon.</p>}

@@ -249,7 +249,7 @@ export const Hero = () => {
             className="max-w-2xl space-y-2 sm:space-y-4"
           >
             <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400 leading-relaxed border-l-2 border-accent-500/30 pl-3 sm:pl-4">
-             Universal Actuaries and Benefit Consultant (UABC) is an ISO 27001:2022–certified Actuarial and Benefits Consulting Firm serving clients across India and globally. With over 80 years of combined relevant experience, we bring deep industry knowledge and expertise, delivering high-quality services with a singular focus on enhancing client value and experience.
+             Universal Actuaries and Consultants LLP (UABC) is an ISO 27001:2022–certified Actuarial and Benefits Consulting Firm serving clients across India and globally. With over 80 years of combined relevant experience, we bring deep industry knowledge and expertise, delivering high-quality services with a singular focus on enhancing client value and experience.
             </p>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-[11px] sm:text-xs md:text-sm">

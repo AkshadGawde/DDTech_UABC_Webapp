@@ -25,7 +25,7 @@ export const ContactUs = () => {
   const offices = [
     {
       city: "Mumbai",
-      address: "Universal Actuaries &amp; Benefit Consultants 1112-A, C Wing, Kailas Business Park, Veer Savarkar Marg, Park Site, Vikhroli (West)",
+      address: "Universal Actuaries and Consultants LLP 1112-A, C Wing, Kailas Business Park, Veer Savarkar Marg, Park Site, Vikhroli (West)",
       postalCode: "Mumbai – 400079 Maharashtra, India",
       phone: "+91 22 49632112",
       email: "universalactuaries@uabc.co.in",
@@ -154,9 +154,9 @@ export const ContactUs = () => {
                       <Building2 className="w-6 h-6 text-accent-600 dark:text-accent-500" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-900 dark:text-white mb-1">Universal Actuaries and Benefit Consultants.</h4>
+                      <h4 className="font-bold text-slate-900 dark:text-white mb-1">Universal Actuaries and Consultants LLP</h4>
                       <p className="text-slate-600 dark:text-slate-400">
-                        Universal Actuaries &amp; Benefit Consultants 1112-A, C Wing, Kailas Business Park, Veer Savarkar Marg, Park Site, Vikhroli (West)<br />
+                        Universal Actuaries and Consultants LLP 1112-A, C Wing, Kailas Business Park, Veer Savarkar Marg, Park Site, Vikhroli (West)<br />
                         Mumbai – 400079 Maharashtra, India
                       </p>
                     </div>

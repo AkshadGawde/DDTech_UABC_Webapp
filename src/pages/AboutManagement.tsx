@@ -194,7 +194,7 @@ Nepal Re
                   {[
                     {
                       role: 'Founder & Consulting Actuary',
-                      org: 'Universal Actuaries and Benefit Consultants',
+                      org: 'Universal Actuaries and Consultants LLP',
                       period: 'Since 2018',
                       color: 'from-orange-500 to-orange-400'
                     },

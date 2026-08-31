@@ -47,7 +47,7 @@ export const Contact = () => {
                     <MapPin className="text-accent-600 dark:text-accent-500 w-4 h-4 sm:w-6 sm:h-6" />
                   </div>
                   <div>
-                    <h4 className="text-slate-900 dark:text-white font-bold text-sm sm:text-lg mb-1">Universal Actuaries &amp; Benefit Consultants</h4>
+                    <h4 className="text-slate-900 dark:text-white font-bold text-sm sm:text-lg mb-1">Universal Actuaries and Consultants LLP</h4>
                     <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">1112-A, C Wing, Kailas Business Park,</p>
                     <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">Veer Savarkar Marg, Park Site,</p>
                     <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">Vikhroli (West), Mumbai – 400079</p>
