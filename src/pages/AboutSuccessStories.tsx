@@ -53,7 +53,7 @@ export const AboutSuccessStories = () => {
     },
     {
       title: "Valuation for a Large Conglomerate with Multiple Entities and Frequent Employee Movement",
-      description: "The company faced challenges in financial reporting for employee benefits. UABC provided actuarial and retirement consulting across 10 entities and 8 benefit plans under Local and US GAAP.",
+      description: "The company faced challenges in financial reporting for employee benefits. UAC provided actuarial and retirement consulting across 10 entities and 8 benefit plans under Local and US GAAP.",
       details: [
         "Timely and structured valuation process improvements",
         "Quarterly budgeting support",

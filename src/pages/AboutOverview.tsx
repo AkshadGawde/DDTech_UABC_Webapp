@@ -275,7 +275,7 @@ export const AboutOverview = () => {
             >
               <div className="inline-flex items-center gap-2 bg-accent-100 dark:bg-accent-900/30 px-4 py-2 rounded-full mb-6">
                 <Building2 className="w-4 h-4 text-accent-600 dark:text-accent-500" />
-                <span className="text-sm font-bold text-accent-700 dark:text-accent-400">About UABC</span>
+                <span className="text-sm font-bold text-accent-700 dark:text-accent-400">About UAC</span>
               </div>
 
               <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6">
@@ -284,7 +284,7 @@ Turning Complexity                <span className="block text-accent-600 dark:te
               </h2>
 
               <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed mb-8">
-                At Universal Actuaries and Consultants LLP (UABC), we empower organizations to make confident, future-ready decisions through rigorous analysis and ethical advisory practices. Our approach blends technical precision with a deep understanding of business realities, ensuring solutions that are practical, transparent, and value focused.
+                At Universal Actuaries and Consultants LLP (UAC), we empower organizations to make confident, future-ready decisions through rigorous analysis and ethical advisory practices. Our approach blends technical precision with a deep understanding of business realities, ensuring solutions that are practical, transparent, and value focused.
                 <br/>
                 <br/>
                 We believe actuarial science is more than numbers — it is about responsibility, trust, and long-term impact.

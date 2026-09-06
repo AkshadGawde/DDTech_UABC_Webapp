@@ -40,7 +40,7 @@ export const ContactUs = () => {
       title: "Phone",
       description: "Reach our Mumbai headquarters",
       contact: "+91 22 49632112",
-      availability: "Mon-Fri 10am-6PM IST"
+      availability: "Mon-Fri 10:30am-6:30pm IST"
     },
     {
       icon: Mail,
@@ -54,7 +54,7 @@ export const ContactUs = () => {
       title: "Email (Chitra Jayasimha)",
       description: "Direct contact",
       contact: "chitra.jayasimha@uabc.co.in",
-      availability: "Mon-Fri 10am-6PM IST"
+      availability: "Mon-Fri 10:30am-6:30pm IST"
     }
   ];
 

@@ -217,7 +217,7 @@ export const AboutUs = () => {
                 Who We Are
               </div>
               <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-6 text-slate-900 dark:text-white">
-                About UABC
+                About UAC
               </h2>
             </motion.div>
 
@@ -248,7 +248,7 @@ export const AboutUs = () => {
                   <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white">Our Company</h3>
                 </div>
                 <p className="text-sm md:text-base text-slate-700 dark:text-slate-300 leading-relaxed mb-4 md:mb-6">
-                  Universal Actuaries and Consultants LLP (UABC) is an ISO 27001-2022 certified actuarial and Benefits consulting firm serving multiple clients in India and across the world. We have 80+ years of total experience delivering quality service with a singular objective to enhance client value and experience.
+                  Universal Actuaries and Consultants LLP (UAC) is an ISO 27001-2022 certified actuarial and Benefits consulting firm serving multiple clients in India and across the world. We have 80+ years of total experience delivering quality service with a singular objective to enhance client value and experience.
                 </p>
                 
                 <div className="flex items-center gap-3 md:gap-4 p-4 bg-accent-50 dark:bg-accent-900/20 rounded-lg">

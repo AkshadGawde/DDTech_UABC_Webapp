@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Award, Clock } from 'lucide-react';
 
 /**
- * About Us - Management Page
+ * About Us - Our Actuary Page
  */
 export const AboutManagement = () => {
   return (

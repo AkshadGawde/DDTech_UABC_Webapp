@@ -6,6 +6,7 @@ import { Logo } from '../ui/Logo';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { ConsultationForm } from '../ConsultationForm';
 import { insightsService } from '../../admin/services/insightsService';
+import { sortCategoriesByCanonicalOrder } from '../../utils/insightsHelpers';
 
 interface NavbarProps {
   isDark: boolean;
@@ -40,8 +41,8 @@ export const Navbar = ({ isDark, toggleTheme }: NavbarProps) => {
         });
         
         if (response && response.insights) {
-          const uniqueCategories = [...new Set(response.insights.map((insight: any) => insight.category))];
-          setInsightCategories(uniqueCategories);
+          const uniqueCategories = [...new Set(response.insights.map((insight: any) => insight.category))] as string[];
+          setInsightCategories(sortCategoriesByCanonicalOrder(uniqueCategories));
         }
       } catch (error) {
         console.error('Failed to fetch categories:', error);
@@ -67,7 +68,7 @@ export const Navbar = ({ isDark, toggleTheme }: NavbarProps) => {
       dropdown: [
         { name: 'Overview', path: '/about' },
         { name: 'Our Approach', path: '/about/approach' },
-        { name: 'Management', path: '/about/management' },
+        { name: 'Our Actuary', path: '/about/our-actuary' },
         { name: 'Our Team', path: '/team' },
         { name: 'Success Stories', path: '/about/success-stories' }
       ]

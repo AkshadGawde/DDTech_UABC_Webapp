@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { insightsService, type Insight } from '../../admin/services/insightsService';
 import { optimizeImage, getInsightImageUrl } from '../../utils/imageUtils';
-import { formatInsightDate, getInsightDate, categoryToSlug, sortInsightsByDateDesc } from '../../utils/insightsHelpers';
+import { formatInsightDate, getInsightDate, categoryToSlug, sortInsightsByDateDesc, sortCategoriesByCanonicalOrder } from '../../utils/insightsHelpers';
 import { usePdfViewer } from '../../utils/usePdfViewer';
 import { PdfViewerModal } from './PdfViewerModal';
 import { InsightsSidebar } from './InsightsSidebar';
@@ -11,7 +11,6 @@ import {
   Loader2,
   FileText,
   Link as LinkIcon,
-  ChevronRight,
   AlertCircle,
 } from 'lucide-react';
 
@@ -79,7 +78,7 @@ export const InsightsPageTemplate = ({ pageTitle, category }: InsightsPageTempla
   };
 
   const categories = useMemo(
-    () => [...new Set(allInsights.map((i) => i.category))],
+    () => sortCategoriesByCanonicalOrder([...new Set(allInsights.map((i) => i.category))]),
     [allInsights]
   );
 
@@ -121,45 +120,33 @@ export const InsightsPageTemplate = ({ pageTitle, category }: InsightsPageTempla
   }
 
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-dark-bg">
-      {/* Page Header */}
-      <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-dark-bg py-10 md:py-14 overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.15) 1px, transparent 1px), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 1px, transparent 1px)',
-            backgroundSize: '60px 60px, 40px 40px',
-          }}
-        />
-        <div className="container mx-auto px-6 relative z-10">
-          <div className="flex items-center gap-2 text-white/70 text-sm mb-2">
-            <Link to="/" className="hover:text-white transition-colors">
-              Home
-            </Link>
-            <ChevronRight className="w-4 h-4" />
-            {category ? (
-              <>
-                <Link to="/insights" className="hover:text-white transition-colors font-semibold tracking-widest uppercase text-sm">
-                  Insights
-                </Link>
-                <ChevronRight className="w-4 h-4" />
-                <span className="text-white font-semibold tracking-widest uppercase text-sm">
-                  {pageTitle}
-                </span>
-              </>
-            ) : (
-              <span className="text-white font-semibold tracking-widest uppercase text-sm">
-                Insights
-              </span>
-            )}
-          </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-wide uppercase">
-            {pageTitle}
-          </h1>
-          <div className="mt-3 w-16 h-1 bg-accent-500 rounded-full" />
+    <div className="min-h-screen bg-light-bg dark:bg-dark-bg pt-16">
+      {/* Hero Section */}
+      <section className="py-12 md:py-16 lg:py-20 bg-gradient-to-br from-accent-50 to-slate-50 dark:from-dark-card dark:to-dark-bg">
+        <div className="container mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center max-w-4xl mx-auto"
+          >
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 text-slate-900 dark:text-white">
+              {pageTitle}
+            </h1>
+            <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
+              {category ? (
+                `Expert analysis, research and regulatory updates on ${pageTitle.toLowerCase()}.`
+              ) : (
+                <>
+                  Actuarial perspectives, Research papers and Regulatory updates from our team,
+                  <br />
+                  helping you stay ahead of what matters.
+                </>
+              )}
+            </p>
+          </motion.div>
         </div>
-      </div>
+      </section>
 
       {/* Main content */}
       <div className="container mx-auto px-4 md:px-6 py-10">

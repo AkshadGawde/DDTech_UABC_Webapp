@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowUpRight } from 'lucide-react';
 
@@ -11,9 +12,11 @@ interface TeamMember {
   bio: string;
   stats: { value: string; label: string }[];
   image: string;
+  /** Tailwind object-position override for the grid card crop (defaults to object-top). */
+  gridImageClass?: string;
 }
 
-// TODO: replace each `image` with a real photo path once uploaded, e.g. "/team/amit-yogi.jpg"
+
 const TEAM_MEMBERS: TeamMember[] = [
   {
     id: 'amit-yogi',
@@ -26,7 +29,7 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '15+', label: 'Years of Experience' },
       { value: '3', label: 'Global GAAP Frameworks' },
     ],
-    image: '',
+    image: '/amit-yogi.jpg',
   },
   {
     id: 'hrishikesh-jadhav',
@@ -39,7 +42,7 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '7+', label: 'Years of Experience' },
       { value: '8', label: 'Actuarial Papers Cleared' },
     ],
-    image: '/Hrishikesh.jpg',
+    image: '/hrishikesh-jadhav.jpg',
   },
   {
     id: 'aditya-ghate',
@@ -52,7 +55,8 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '6+', label: 'Years of Experience' },
       { value: '10', label: 'Actuarial Papers Cleared' },
     ],
-    image: '',
+    image: '/aditya-ghate.jpg',
+    gridImageClass: 'object-[center_25%]',
   },
   {
     id: 'rashi-ranawat',
@@ -65,7 +69,7 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '5+', label: 'Years of Experience' },
       { value: '8', label: 'Actuarial Papers Cleared' },
     ],
-    image: '',
+    image: '/rashi-ranawat.jpg',
   },
   {
     id: 'nupoor-joshi',
@@ -73,9 +77,9 @@ const TEAM_MEMBERS: TeamMember[] = [
     lastName: 'Joshi',
     designation: 'Actuarial Consultant',
     tags: [],
-    bio: '',
+    bio: 'Nupoor Joshi serves as an Actuarial Consultant, contributing over two years of focused industry experience to the firm\'s actuarial practice. She partners with a diverse spectrum of publicly listed, private, and multinational organizations, supporting corporate clients across end-to-end employee benefit valuation mandates.\n\nHer core technical focus is dedicated to the valuation and accounting of short- and long-term Employee Benefits, including Gratuity schemes, Leave encashment policies, and Long Service Benefits. She is well-versed in preparing statutory actuarial disclosures across multiple accounting standards, including IGAAP, IFRS, US GAAP, and various regional reporting frameworks. In her day-to-day analytical work, Nupoor configures plan-specific parameters, analyzes data trends for assumption setting, and conducts granular liability movement analyses for peer reviews.\n\nNupoor plays an active role in strategic advisory assignments, assisting numerous organizations with the restructuring of their wage structures to ensure full compliance with India\'s New Labour Codes. Additionally, she contributes to the firm\'s research initiatives by co-authoring white papers, industry reports, and regulatory updates on emerging benefit trends. Demonstrating strong communication and relationship-building abilities, she effectively interfaces with stakeholders to resolve auditor queries and support ongoing client requirements.',
     stats: [{ value: '2+', label: 'Years of Experience' }],
-    image: '',
+    image: '/nupoor-joshi.jpg',
   },
   {
     id: 'raghav-sivaganesan',
@@ -83,9 +87,12 @@ const TEAM_MEMBERS: TeamMember[] = [
     lastName: 'Sivaganesan',
     designation: 'Actuarial Consultant',
     tags: [],
-    bio: '',
-    stats: [{ value: '1+', label: 'Years of Experience' }],
-    image: '',
+    bio: 'Raghav Sivaganesan is an Actuarial Consultant with over a year of specialized quantitative experience and six actuarial examination papers cleared. He works closely with a diverse clientele, including private entities, publicly listed companies, and multinational organizations, supporting the execution of key actuarial valuation and consulting engagements.\n\nHis technical focus centres on valuation frameworks for Employee Benefits, encompassing statutory Gratuity schemes, Leave plans, and Long Service Benefits. Raghav is proficient in delivering actuarial valuations aligned with diverse global accounting frameworks, including IGAAP, IFRS, US GAAP, and jurisdiction-specific reporting standards. His analytical toolkit includes fine-tuning model parameters to match bespoke benefit rules, executing trend analyses to inform actuarial assumptions, and performing in-depth liability movement analyses to support peer reviews.\n\nOn the advisory front, Raghav supports organizations through strategic salary restructuring initiatives designed to achieve regulatory compliance under India\'s New Labour Codes. He also plays an active role in thought leadership, contributing to research publications, technical white papers, and regulatory market analyses. With effective communication and interpersonal capabilities, he assists clients and audit teams in resolving detailed valuation queries while fostering positive stakeholder relationships.',
+    stats: [
+      { value: '1+', label: 'Years of Experience' },
+      { value: '6', label: 'Actuarial Papers Cleared' },
+    ],
+    image: '/raghav.png',
   },
   {
     id: 'khushi-sawant',
@@ -93,9 +100,10 @@ const TEAM_MEMBERS: TeamMember[] = [
     lastName: 'Sawant',
     designation: 'Actuarial Consultant',
     tags: [],
-    bio: '',
+    bio: 'Khushi Sawant works as an Actuarial Consultant, contributing over a year of dedicated consulting experience to the firm\'s actuarial practice.\n\nHer domain expertise lies in the valuation and accounting of mandatory and voluntary Employee Benefits, spanning Gratuity programs, Leave schemes, and Long Service Benefits. Khushi regularly executes actuarial reporting in accordance with major financial accounting standards, including IGAAP, IFRS, US GAAP, and various country-specific local GAAPs. Her analytical responsibilities include conducting detailed trend analyses to calibrate demographic and financial assumptions, as well as breaking down liability movements for rigorous peer reviews.\n\nKhushi brings strong interpersonal and communication skills to client engagements, actively collaborating with cross-functional corporate teams. She plays an essential role in addressing client inquiries, liaising directly with statutory auditors on actuarial audit queries, and ensuring seamless delivery across diverse statutory reporting mandates.',
     stats: [{ value: '1+', label: 'Years of Experience' }],
-    image: '',
+    image: '/khushi-sawant.jpg',
+    gridImageClass: 'object-[center_25%]',
   },
 ];
 
@@ -104,9 +112,11 @@ const getInitials = (first: string, last: string) => `${first[0]}${last[0]}`;
 const MemberPhoto = ({
   member,
   initialsClassName,
+  imgClassName = 'w-full h-full object-cover object-top',
 }: {
   member: TeamMember;
   initialsClassName: string;
+  imgClassName?: string;
 }) => {
   const [imageFailed, setImageFailed] = useState(false);
   const showPlaceholder = !member.image || imageFailed;
@@ -125,17 +135,18 @@ const MemberPhoto = ({
       alt={`${member.firstName} ${member.lastName}`}
       loading="lazy"
       onError={() => setImageFailed(true)}
-      className="w-full h-full object-cover object-top"
+      className={imgClassName}
     />
   );
 };
 
-const RotatingStamp = ({ label }: { label: string }) => {
+const RotatingStamp = ({ label, onClick }: { label: string; onClick?: () => void }) => {
   const pathId = 'stampCirclePath';
   const repeated = `${label} • ${label} • `;
   return (
     <button
       type="button"
+      onClick={onClick}
       className="relative w-24 h-24 md:w-28 md:h-28 shrink-0 group"
       aria-label={label}
     >
@@ -164,6 +175,7 @@ const RotatingStamp = ({ label }: { label: string }) => {
 };
 
 export const Team = () => {
+  const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
   const [view, setView] = useState<'list' | 'detail'>('list');
   const active = TEAM_MEMBERS[activeIndex];
@@ -175,8 +187,8 @@ export const Team = () => {
   const closeDetail = () => setView('list');
 
   return (
-    <section className="bg-light-bg dark:bg-dark-bg py-10 md:py-16 px-3 md:px-8">
-      <div className="max-w-7xl mx-auto bg-light-card dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-[1.5rem] md:rounded-[2rem] shadow-xl overflow-hidden">
+    <section className="bg-light-bg dark:bg-dark-bg py-5 md:py-12 px-3 md:px-8">
+      <div className="max-w-6xl mx-auto bg-light-card dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-[1.5rem] md:rounded-[2rem] shadow-xl overflow-hidden">
         <AnimatePresence mode="wait">
           {view === 'list' ? (
             <motion.div
@@ -185,43 +197,46 @@ export const Team = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.35 }}
-              className="p-5 sm:p-8 md:p-10"
+              className="p-4 sm:p-6 md:p-8"
             >
               {/* Heading + copy */}
               <div className="max-w-2xl mx-auto text-center">
-                <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl leading-[0.92] text-slate-900 dark:text-white">
+                <h2 className="font-serif text-xl sm:text-2xl md:text-3xl leading-[0.92] text-slate-900 dark:text-white">
                   Meet{' '}
                   <span className="italic text-accent-600 dark:text-accent-500">Our</span>{' '}
                   Team
                 </h2>
-                <p className="mt-4 max-w-md mx-auto text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                {/* <p className="mt-4 max-w-md mx-auto text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                   A dedicated team of actuarial professionals bringing decades of combined
                   expertise across Employee Benefits, Insurance, and Retirement Consulting.
-                </p>
+                </p> */}
               </div>
 
               {/* Card grid: 2x2 on phone, wraps and centers incomplete rows up to 4 per row on desktop */}
-              <div className="mt-6 flex flex-wrap justify-center gap-4 sm:gap-5">
+              <div className="mt-5 flex flex-wrap justify-center gap-3 sm:gap-4">
                 {TEAM_MEMBERS.map((member, i) => (
                   <div
                     key={member.id}
-                    className="flex flex-col items-center shrink-0 basis-[calc(50%-0.5rem)] sm:basis-[calc(50%-0.625rem)] lg:basis-[calc(25%-0.9375rem)]"
+                    className="flex flex-col items-center shrink-0 basis-[calc(50%-0.375rem)] sm:basis-[calc(50%-0.5rem)] lg:basis-[calc(25%-0.75rem)]"
                   >
-                    <motion.button
+                    <button
                       type="button"
-                      layoutId={`photo-${member.id}`}
                       onClick={() => openDetail(i)}
                       aria-label={`View ${member.firstName} ${member.lastName}'s profile`}
-                      className="relative w-full max-w-xs h-36 sm:h-56 md:h-64 lg:h-72 rounded-2xl overflow-hidden cursor-pointer shadow-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-dark-bg"
+                      className="relative w-full max-w-[15rem] h-32 sm:h-48 md:h-56 lg:h-60 rounded-2xl overflow-hidden cursor-pointer shadow-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-dark-bg transition-transform duration-300 hover:-translate-y-1"
                     >
-                      <MemberPhoto member={member} initialsClassName="text-4xl text-white/90" />
-                    </motion.button>
+                      <MemberPhoto
+                        member={member}
+                        initialsClassName="text-4xl text-white/90"
+                        imgClassName={`w-full h-full object-cover ${member.gridImageClass ?? 'object-top'}`}
+                      />
+                    </button>
 
-                    <div className="mt-3 text-center">
-                      <h3 className="font-serif text-base text-slate-900 dark:text-white">
+                    <div className="mt-2.5 text-center">
+                      <h3 className="font-serif text-sm text-slate-900 dark:text-white">
                         {member.firstName} {member.lastName}
                       </h3>
-                      <p className="mt-1 text-xs text-accent-600 dark:text-accent-500">
+                      <p className="mt-0.5 text-[0.7rem] text-accent-600 dark:text-accent-500">
                         {member.designation}
                       </p>
                       {member.tags.length > 0 && (
@@ -269,7 +284,7 @@ export const Team = () => {
                 </div>
               </div>
 
-              <h2 className="px-5 sm:px-8 md:px-10 mt-3 text-center font-serif text-2xl sm:text-3xl md:text-4xl text-slate-900 dark:text-white">
+              <h2 className="px-5 sm:px-8 md:px-10 mt-3 text-center font-serif text-xl sm:text-2xl md:text-3xl text-slate-900 dark:text-white">
                 <span className="italic text-accent-600 dark:text-accent-500">
                   {active.firstName}
                 </span>{' '}
@@ -279,28 +294,49 @@ export const Team = () => {
                 {active.designation}
               </p>
 
-              <div className="mt-5 grid grid-cols-1 md:grid-cols-2">
-                <motion.div
-                  layoutId={`photo-${active.id}`}
-                  className="relative h-60 md:h-[400px] overflow-hidden bg-gradient-to-br from-brand-700 via-brand-800 to-dark-bg"
-                >
-                  <MemberPhoto member={active} initialsClassName="text-5xl text-white/90" />
-                </motion.div>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-[3fr_7fr]">
+                <div className="flex items-center justify-center p-4 sm:p-6">
+                  <motion.div
+                    initial={{ opacity: 0, x: -48 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    className="relative group w-full max-w-[19rem]"
+                  >
+                    {/* Gradient Border */}
+                    <div className="p-[3px] rounded-2xl bg-black shadow-xl">
+                      {/* Inner Frame */}
+                      <div className="rounded-2xl bg-white dark:bg-dark-card p-3">
+                        <div className="rounded-xl overflow-hidden bg-gradient-to-br from-brand-700 via-brand-800 to-dark-bg">
+                          <MemberPhoto
+                            member={active}
+                            initialsClassName="text-5xl text-white/90 aspect-square"
+                            imgClassName="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    {/* Overlay */}
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
+                  </motion.div>
+                </div>
 
-                <div className="relative bg-brand-50 dark:bg-dark-card p-5 md:p-8 flex flex-col justify-between min-h-[220px] md:min-h-[360px]">
-                  <div className="flex flex-col sm:flex-row sm:justify-between items-center sm:items-start gap-5 sm:gap-6">
-                    <div className="team-bio-scroll w-full sm:max-w-sm space-y-3 text-sm sm:text-base md:text-lg text-slate-700 dark:text-slate-300 leading-relaxed md:max-h-[440px] md:overflow-y-auto md:pr-3">
+                <div className="relative bg-brand-50 dark:bg-dark-card p-4 md:p-6 flex flex-col justify-between min-h-[220px] md:min-h-[340px]">
+                  <div className="flex flex-col sm:flex-row sm:justify-between items-center sm:items-start gap-4 sm:gap-6">
+                    <div className="team-bio-scroll w-full flex-1 min-w-0 space-y-2.5 text-sm md:text-[0.95rem] text-slate-700 dark:text-slate-300 leading-relaxed md:max-h-[560px] md:overflow-y-auto md:pr-3">
                       {active.bio
                         ? active.bio.split('\n\n').map((paragraph, idx) => <p key={idx}>{paragraph}</p>)
                         : <p>Bio coming soon.</p>}
                     </div>
-                    <RotatingStamp label="BOOK A CONSULTATION" />
+                    <RotatingStamp
+                      label="BOOK A CONSULTATION"
+                      onClick={() => navigate('/contact')}
+                    />
                   </div>
 
-                  <div className="mt-6 flex gap-8">
+                  <div className="mt-5 flex gap-8">
                     {active.stats.map((stat) => (
                       <div key={stat.label}>
-                        <div className="font-serif text-2xl text-slate-900 dark:text-white">
+                        <div className="font-serif text-xl text-slate-900 dark:text-white">
                           {stat.value}
                         </div>
                         <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-[8rem]">

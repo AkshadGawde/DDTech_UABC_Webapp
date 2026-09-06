@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ScrollProgress } from './components/layout/ScrollProgress';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 import { Navbar } from './components/layout/Navbar';
@@ -159,7 +159,8 @@ const App = () => {
                         <Route path="/" element={<Home />} />
                         <Route path="/about" element={<AboutOverview />} />
                         <Route path="/about/approach" element={<AboutApproach />} />
-                        <Route path="/about/management" element={<AboutManagement />} />
+                        <Route path="/about/our-actuary" element={<AboutManagement />} />
+                        <Route path="/about/management" element={<Navigate to="/about/our-actuary" replace />} />
                         <Route path="/about/success-stories" element={<AboutSuccessStories />} />
                         <Route path="/team" element={<Team />} />
                         <Route path="/services" element={<ServicesPage />} />
