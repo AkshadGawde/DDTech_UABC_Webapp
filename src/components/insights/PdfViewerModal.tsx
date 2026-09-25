@@ -118,7 +118,7 @@ export const PdfViewerModal = ({ pdfViewer, onClose, onRetry, onCopyLink }: PdfV
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white dark:bg-dark-card">
                   <Loader2 className="w-8 h-8 animate-spin text-accent-600" />
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Fetching PDF from Cloudinary…
+                    Loading PDF…
                   </p>
                 </div>
               )}

@@ -3,6 +3,10 @@ import { motion } from 'framer-motion';
 import { CheckCircle, AlertCircle, Loader2, Mail, Phone, User, Upload, FileText } from 'lucide-react';
 import emailjs from '@emailjs/browser';
 import toast from 'react-hot-toast';
+import { getApiUrl } from '../config/apiConfig';
+
+// Errors from the resume upload step; their message is safe to show to the applicant.
+class ResumeUploadError extends Error {}
 
 interface FormStatus {
   type: 'idle' | 'loading' | 'success' | 'error';
@@ -11,7 +15,7 @@ interface FormStatus {
 
 /**
  * Job Application Form Component
- * Sends job applications via EmailJS with resume attachment
+ * Uploads the resume to our backend (R2) and sends the application via EmailJS with a link to it
  */
 export const JobApplicationForm: React.FC = () => {
   const formRef = useRef<HTMLFormElement>(null);
@@ -112,34 +116,29 @@ export const JobApplicationForm: React.FC = () => {
     setFormStatus({ type: 'loading', message: 'Uploading resume...' });
 
     try {
-      // Log for debugging
-      console.log('Cloud Name:', import.meta.env.VITE_CLOUDINARY_CLOUD_NAME);
-      console.log('All env vars:', import.meta.env);
+      // Upload the resume to our own storage; the response is used to build a
+      // permanent link that goes into the email to HR.
+      const apiUrl = getApiUrl();
+      const uploadData = new FormData();
+      uploadData.append('resume', resumeFile);
 
-      // Upload resume to Cloudinary
-      const formDataCloudinary = new FormData();
-      formDataCloudinary.append('file', resumeFile);
-      formDataCloudinary.append('upload_preset', 'uabc_resumes');
-      formDataCloudinary.append('folder', 'uabc_job_applications');
-
-      const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/auto/upload`;
-      console.log('Cloudinary URL:', cloudinaryUrl);
-
-      const cloudinaryResponse = await fetch(cloudinaryUrl, {
-        method: 'POST',
-        body: formDataCloudinary,
-      });
-
-      const cloudinaryData = await cloudinaryResponse.json();
-      console.log('Cloudinary Response:', cloudinaryData);
-
-      if (!cloudinaryResponse.ok) {
-        console.error('Cloudinary Error Response:', cloudinaryData);
-        throw new Error(cloudinaryData.error?.message || 'Failed to upload resume to Cloudinary');
+      let uploadResponse: Response;
+      try {
+        uploadResponse = await fetch(`${apiUrl}/applications/resume`, {
+          method: 'POST',
+          body: uploadData,
+        });
+      } catch {
+        throw new ResumeUploadError('Could not upload your resume. Please check your connection and try again.');
       }
 
-      const resumeUrl = cloudinaryData.secure_url;
-      console.log('✅ Cloudinary Upload Success! Resume URL:', resumeUrl);
+      const uploadResult = await uploadResponse.json().catch(() => null);
+      if (!uploadResponse.ok || !uploadResult?.success) {
+        throw new ResumeUploadError(uploadResult?.message || 'Failed to upload your resume. Please try again.');
+      }
+
+      const { token, filename } = uploadResult.data;
+      const resumeUrl = `${apiUrl}/applications/resume/${token}/${encodeURIComponent(filename)}`;
 
       setFormStatus({ type: 'loading', message: 'Sending your application...' });
 
@@ -181,10 +180,11 @@ export const JobApplicationForm: React.FC = () => {
       }, 5000);
     } catch (error) {
       console.error('Upload/Email Error:', error);
-      toast.error('Failed to submit application. Please try again.');
+      const uploadMessage = error instanceof ResumeUploadError ? error.message : '';
+      toast.error(uploadMessage || 'Failed to submit application. Please try again.');
       setFormStatus({
         type: 'error',
-        message: 'Failed to submit application. Please try again or contact us directly.'
+        message: uploadMessage || 'Failed to submit application. Please try again or contact us directly.'
       });
     }
   };

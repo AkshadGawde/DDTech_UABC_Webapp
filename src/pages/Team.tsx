@@ -189,16 +189,24 @@ export const Team = () => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [view, setView] = useState<'list' | 'detail'>('list');
   const active = TEAM_MEMBERS[activeIndex];
+  // Keep the whole photo card on screen at first paint. The card starts ~279px below the top of
+  // the viewport (navbar + name header) and its frame adds 30px, so the photo may be at most
+  // (100vh - 321px) tall. Only bites on short screens (< ~660px tall); otherwise 19rem is used.
+  const photoAspect = active.imageSize ? active.imageSize[0] / active.imageSize[1] : 1;
+  const photoCardWidth = `max(12rem, min(19rem, calc((100vh - 321px) * ${photoAspect.toFixed(4)} + 30px)))`;
 
   const openDetail = (index?: number) => {
     if (index !== undefined) setActiveIndex(index);
     setView('detail');
+    window.scrollTo(0, 0);
+    document.body.scrollTop = 0;
+    document.documentElement.scrollTop = 0;
   };
   const closeDetail = () => setView('list');
 
   return (
     <section className="bg-light-bg dark:bg-dark-bg py-5 md:py-12 px-3 md:px-8">
-      <div className="max-w-6xl mx-auto bg-light-card dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-[1.5rem] md:rounded-[2rem] shadow-xl overflow-hidden">
+      <div className="max-w-6xl mx-auto bg-light-card dark:bg-dark-card border border-slate-200 dark:border-dark-border rounded-[1.5rem] md:rounded-[2rem] shadow-xl overflow-hidden overflow-clip">
         <AnimatePresence mode="wait">
           {view === 'list' ? (
             <motion.div
@@ -305,12 +313,17 @@ export const Team = () => {
               </p>
 
               <div className="mt-4 grid grid-cols-1 md:grid-cols-[3fr_7fr]">
-                <div className="flex items-center justify-center p-4 sm:p-6">
+                {/* Photo column: the card sits at the top of the column (level with the bio)
+                    and stays in view while the bio scrolls, instead of being centred in the
+                    full column height, which pushed it below the fold on shorter screens. */}
+                <div className="flex items-start justify-center p-4 sm:p-6">
+                  <div className="w-full flex justify-center md:sticky md:top-[88px]">
                   <motion.div
                     initial={{ opacity: 0, x: -48 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                    className="relative group w-full max-w-[19rem]"
+                    className="relative group w-full max-w-[19rem] md:w-[var(--photo-w)]"
+                    style={{ '--photo-w': photoCardWidth } as React.CSSProperties}
                   >
                     {/* Gradient Border */}
                     <div className="p-[3px] rounded-2xl bg-black shadow-xl">
@@ -328,6 +341,7 @@ export const Team = () => {
                     {/* Overlay */}
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
                   </motion.div>
+                  </div>
                 </div>
 
                 <div className="relative bg-brand-50 dark:bg-dark-card p-4 md:p-6 flex flex-col justify-between min-h-[220px] md:min-h-[340px]">

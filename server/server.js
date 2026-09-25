@@ -9,6 +9,7 @@ require("dotenv").config();
 const authRoutes = require("./routes/auth");
 const insightsRoutes = require("./routes/insights");
 const pdfInsightRoutes = require("./routes/pdfInsights");
+const applicationRoutes = require("./routes/applications");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -111,6 +112,7 @@ app.get("/", (req, res) => {
       auth: "/api/auth",
       insights: "/api/insights",
       "pdf-insights": "/api/pdf-insights",
+      applications: "/api/applications",
     },
     timestamp: new Date().toISOString(),
   });
@@ -125,6 +127,7 @@ app.get("/favicon.ico", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/insights", insightsRoutes);
 app.use("/api/pdf-insights", pdfInsightRoutes);
+app.use("/api/applications", applicationRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {

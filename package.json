@@ -15,7 +15,6 @@
     "@barba/css": "^2.1.16",
     "@emailjs/browser": "^4.4.1",
     "@types/react-router-dom": "^5.3.3",
-    "cloudinary": "^2.9.0",
     "emailjs": "^5.0.0",
     "framer-motion": "^12.23.24",
     "gsap": "^3.14.2",

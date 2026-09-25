@@ -39,7 +39,7 @@ export const usePdfViewer = () => {
       setPdfViewer((prev) => ({
         ...prev,
         loading: false,
-        error: err?.message || 'Failed to load PDF from Cloudinary.',
+        error: err?.message || 'Failed to load PDF.',
       }));
     }
   }, []);

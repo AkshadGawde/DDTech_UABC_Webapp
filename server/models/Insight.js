@@ -28,7 +28,7 @@ const insightSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    // Cloudinary PDF URL (optional - only for PDF insights)
+    // PDF URL (optional - only for PDF insights)
     pdfUrl: {
       type: String,
       required: false,
