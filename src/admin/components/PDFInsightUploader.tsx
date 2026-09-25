@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, Calendar, FileText, Image, AlertCircle, Check } from 'lucide-react';
 import { authService } from '../services/authService';
-import type { InsightSection } from '../services/insightsService';
+import { insightsService, type InsightSection } from '../services/insightsService';
 import { SECTION_CONFIG } from '../sections';
 
 interface PDFInsightUploaderProps {
@@ -140,6 +140,10 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
     setLoading(true);
     
     try {
+      if (section === 'legislation' && !(await insightsService.isLegislationSupported())) {
+        throw new Error('The server is running an older version that does not support Legislation yet, so this upload was blocked to avoid publishing it under Insights. Deploy the latest backend and try again.');
+      }
+
       const formData = new FormData();
       formData.append('pdf', pdfFile);
       formData.append('category', selectedCategory);
@@ -358,7 +362,7 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
                     onChange={(e) => setCustomTitle(e.target.value)}
                     placeholder="Enter custom title for this PDF..."
                     maxLength={200}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <p className="text-xs text-gray-500">
                     {customTitle.length}/200 characters
@@ -400,7 +404,7 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
                 placeholder="Write a short description for this PDF..."
                 maxLength={500}
                 rows={4}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full px-3 py-2 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <p className="text-xs text-gray-500">{description.length}/500 characters</p>
             </motion.div>
@@ -456,7 +460,7 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
                     value={featuredImage}
                     onChange={(e) => setFeaturedImage(e.target.value)}
                     placeholder="https://example.com/image.jpg (optional)"
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 <p className="text-xs text-gray-500">
@@ -524,7 +528,7 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
                 value={publishDate}
                 onChange={(e) => setPublishDate(e.target.value)}
                 required
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700"
               />
             </div>
           </div>
@@ -541,7 +545,7 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
                 onChange={(e) => setCategory(e.target.value)}
                 disabled={showCustomCategory}
                 required={!showCustomCategory}
-                className="block flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 text-gray-500"
+                className="block flex-1 px-3 py-2 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 text-gray-500"
               >
                 {categoryOptions.map((option) => (
                   <option key={option} value={option}>{option}</option>
@@ -579,7 +583,7 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
                   onChange={(e) => setCustomCategory(e.target.value)}
                   placeholder="Enter new category name"
                   required
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-3 py-2 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </motion.div>
             )}
@@ -616,7 +620,7 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
                   Processing PDF...
                 </div>
               ) : (
-                'Upload Insight'
+                `Upload ${sectionConfig.tabLabel}`
               )}
             </button>
           </div>

@@ -3,9 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
-  SearchX,
   X,
-  Scale,
   Link as LinkIcon,
   Share2,
   Mail,
@@ -94,11 +92,11 @@ const scoreDoc = (d: IndexedDoc, tokens: string[]) => {
 
 // Stable per-category colour so badges/tiles are consistent across the page.
 const TONES = [
-  { tile: 'bg-accent-100 text-accent-700 dark:bg-accent-900/30 dark:text-accent-300', badge: 'bg-accent-50 text-accent-700 border-accent-200 dark:bg-accent-900/20 dark:text-accent-300 dark:border-accent-800' },
-  { tile: 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300', badge: 'bg-brand-50 text-brand-700 border-brand-200 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-800' },
-  { tile: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800' },
-  { tile: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300', badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800' },
-  { tile: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300', badge: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-300 dark:border-sky-800' },
+  { badge: 'bg-accent-50 text-accent-700 border-accent-200 dark:bg-accent-900/20 dark:text-accent-300 dark:border-accent-800' },
+  { badge: 'bg-brand-50 text-brand-700 border-brand-200 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-800' },
+  { badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800' },
+  { badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800' },
+  { badge: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-300 dark:border-sky-800' },
 ];
 const toneFor = (category: string) => {
   let h = 0;
@@ -190,7 +188,7 @@ const ShareMenu = ({ item, onCopy }: ShareMenuProps) => {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Share ${item.title}`}
-        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] font-medium rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
       >
         <Share2 className="w-4 h-4" />
         <span className="hidden sm:inline">Share</span>
@@ -274,7 +272,7 @@ const DocCard = ({ doc, index, tokens, flash, copiedKey, onOpen, onCopy }: DocCa
   const [expanded, setExpanded] = useState(false);
   const tone = toneFor(item.category || '');
   const description = item.excerpt || '';
-  const long = description.length > 190;
+  const long = description.length > 120;
   const pageCopied = copiedKey === `${id}:page`;
 
   return (
@@ -283,21 +281,18 @@ const DocCard = ({ doc, index, tokens, flash, copiedKey, onOpen, onCopy }: DocCa
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: Math.min(index, 8) * 0.04 }}
-      className={`group relative flex flex-col rounded-2xl border bg-white dark:bg-dark-card p-5 md:p-6 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl ${
+      className={`group relative flex flex-col rounded-xl border bg-white dark:bg-dark-card p-4 md:p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
         flash
           ? 'border-accent-500 ring-4 ring-accent-500/20 shadow-xl'
           : 'border-slate-200 dark:border-slate-700 shadow-sm hover:border-accent-300 dark:hover:border-accent-700'
       }`}
     >
-      <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-1 rounded-r-full bg-accent-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <span className="pointer-events-none absolute left-0 top-5 bottom-5 w-1 rounded-r-full bg-accent-500 opacity-0 group-hover:opacity-100 transition-opacity" />
 
-      <div className="flex items-start gap-4">
-        <div className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${tone.tile}`}>
-          <Scale className="w-6 h-6" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-2">
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-[11px] font-semibold tracking-wide uppercase ${tone.badge}`}>
+      <div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mb-1.5">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-semibold tracking-wide uppercase ${tone.badge}`}>
               <Highlight text={item.category || 'General'} tokens={tokens} />
             </span>
             <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
@@ -310,7 +305,7 @@ const DocCard = ({ doc, index, tokens, flash, copiedKey, onOpen, onCopy }: DocCa
               </span>
             )}
           </div>
-          <h3 className="text-base md:text-lg font-bold leading-snug text-slate-900 dark:text-white">
+          <h3 className="text-[15px] md:text-base font-bold leading-snug text-slate-900 dark:text-white">
             <button
               type="button"
               onClick={() => onOpen(item)}
@@ -323,8 +318,8 @@ const DocCard = ({ doc, index, tokens, flash, copiedKey, onOpen, onCopy }: DocCa
       </div>
 
       {description && (
-        <div className="mt-4">
-          <p className={`text-sm leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-line ${expanded ? '' : 'line-clamp-3'}`}>
+        <div className="mt-2.5">
+          <p className={`text-[13px] leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-line ${expanded ? '' : 'line-clamp-2'}`}>
             <Highlight text={description} tokens={tokens} />
           </p>
           {long && (
@@ -339,12 +334,12 @@ const DocCard = ({ doc, index, tokens, flash, copiedKey, onOpen, onCopy }: DocCa
         </div>
       )}
 
-      <div className="mt-auto pt-5">
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-700/70 flex flex-wrap items-center gap-2">
+      <div className="mt-auto pt-3.5">
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-700/70 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => onOpen(item)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg bg-accent-600 text-white hover:bg-accent-700 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[13px] font-semibold rounded-lg bg-accent-600 text-white hover:bg-accent-700 transition-colors"
           >
             <Eye className="w-4 h-4" /> View PDF
           </button>
@@ -352,7 +347,7 @@ const DocCard = ({ doc, index, tokens, flash, copiedKey, onOpen, onCopy }: DocCa
             type="button"
             onClick={() => onCopy(pageLinkFor(id), 'Page link copied', `${id}:page`)}
             aria-label={`Copy link to ${item.title}`}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] font-medium rounded-lg border transition-colors ${
               pageCopied
                 ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
                 : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
@@ -371,20 +366,16 @@ const DocCard = ({ doc, index, tokens, flash, copiedKey, onOpen, onCopy }: DocCa
 };
 
 const SkeletonCard = () => (
-  <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-dark-card p-6 animate-pulse">
-    <div className="flex gap-4">
-      <div className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-slate-700" />
-      <div className="flex-1 space-y-3">
-        <div className="h-3 w-1/3 rounded bg-slate-200 dark:bg-slate-700" />
-        <div className="h-4 w-4/5 rounded bg-slate-200 dark:bg-slate-700" />
-      </div>
+  <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-dark-card p-4 md:p-5 animate-pulse">
+    <div className="space-y-2.5">
+      <div className="h-3 w-1/3 rounded bg-slate-200 dark:bg-slate-700" />
+      <div className="h-4 w-4/5 rounded bg-slate-200 dark:bg-slate-700" />
     </div>
-    <div className="mt-5 space-y-2">
+    <div className="mt-3 space-y-2">
       <div className="h-3 rounded bg-slate-200 dark:bg-slate-700" />
-      <div className="h-3 w-11/12 rounded bg-slate-200 dark:bg-slate-700" />
       <div className="h-3 w-2/3 rounded bg-slate-200 dark:bg-slate-700" />
     </div>
-    <div className="mt-6 h-9 w-28 rounded-lg bg-slate-200 dark:bg-slate-700" />
+    <div className="mt-5 h-8 w-24 rounded-lg bg-slate-200 dark:bg-slate-700" />
   </div>
 );
 
@@ -601,7 +592,7 @@ export const Legislation = () => {
             className="text-center max-w-4xl mx-auto"
           >
             <span className="inline-flex items-center gap-2 px-3 py-1 mb-5 rounded-full text-xs font-semibold tracking-widest uppercase text-accent-700 dark:text-accent-400 bg-white/80 dark:bg-white/5 border border-accent-200 dark:border-accent-800">
-              <Scale className="w-3.5 h-3.5" /> Legislation Library
+              Legislation Library
             </span>
             <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 text-slate-900 dark:text-white">
               Acts, Rules &amp;{' '}
@@ -736,7 +727,7 @@ export const Legislation = () => {
 
         {/* Loading */}
         {loading && (
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         )}
@@ -744,9 +735,6 @@ export const Legislation = () => {
         {/* Nothing published yet */}
         {!loading && !error && items.length === 0 && (
           <div className="max-w-md mx-auto text-center py-20">
-            <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-accent-100 dark:bg-accent-900/30 flex items-center justify-center">
-              <Scale className="w-8 h-8 text-accent-600" />
-            </div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Library coming soon</h2>
             <p className="text-slate-600 dark:text-slate-400">
               We&rsquo;re preparing this collection. Legislation and government circulars will appear here as soon as they&rsquo;re published.
@@ -757,9 +745,6 @@ export const Legislation = () => {
         {/* No matches */}
         {!loading && !error && items.length > 0 && results.length === 0 && (
           <div className="max-w-md mx-auto text-center py-20">
-            <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <SearchX className="w-8 h-8 text-slate-400" />
-            </div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No matching documents</h2>
             <p className="text-slate-600 dark:text-slate-400 mb-6">
               Try fewer or different keywords, check the spelling, or browse all categories.
@@ -776,7 +761,7 @@ export const Legislation = () => {
 
         {/* Cards */}
         {!loading && !error && results.length > 0 && (
-          <div className="grid gap-5 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {pageDocs.map((doc, i) => (
               <DocCard
                 key={doc.id}

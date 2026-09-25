@@ -144,9 +144,28 @@ class InsightsService {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       if (!data.success) throw new Error(data.message || 'Failed to fetch legislation');
-      return (data.data?.insights || []).filter((i: Insight) => i.published);
+      // Also require section === 'legislation': a backend that predates sections
+      // ignores the filter and would otherwise return every insight.
+      return (data.data?.insights || []).filter(
+        (i: Insight) => i.published && i.section === 'legislation'
+      );
     } finally {
       clearTimeout(timeoutId);
+    }
+  }
+
+  // False when the API predates sections (it returns non-legislation documents for a
+  // legislation query). Used to block legislation uploads that would otherwise be
+  // filed under Insights on the live site.
+  async isLegislationSupported(): Promise<boolean> {
+    try {
+      const params = new URLSearchParams({ section: 'legislation', limit: '1' });
+      const response = await fetch(`${API_URL}/insights?${params}`);
+      const data = await response.json();
+      const first = data?.data?.insights?.[0];
+      return !first || first.section === 'legislation';
+    } catch {
+      return true; // can't tell - let the upload itself report any network problem
     }
   }
 

@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, Check, X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { authService } from '../services/authService';
-import type { InsightSection } from '../services/insightsService';
+import { insightsService, type InsightSection } from '../services/insightsService';
 import { SECTION_CONFIG } from '../sections';
 
 interface PDFEntry {
@@ -78,6 +78,7 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
   const [customCategory, setCustomCategory] = useState('');
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [blockedMsg, setBlockedMsg] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -125,6 +126,12 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
     const category = showCustomCategory && customCategory.trim()
       ? customCategory.trim()
       : sharedCategory;
+
+    setBlockedMsg(null);
+    if (section === 'legislation' && !(await insightsService.isLegislationSupported())) {
+      setBlockedMsg('The server is running an older version that does not support Legislation yet, so this upload was blocked to avoid publishing it under Insights. Deploy the latest backend and try again.');
+      return;
+    }
 
     setUploading(true);
     setProgress(0);
@@ -207,7 +214,7 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
             value={showCustomCategory ? '' : sharedCategory}
             onChange={e => setSharedCategory(e.target.value)}
             disabled={showCustomCategory || uploading}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-gray-700"
+            className="flex-1 px-3 py-2 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-gray-700"
           >
             {categoryOptions.map(opt => (
               <option key={opt} value={opt}>{opt}</option>
@@ -236,7 +243,7 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
             onChange={e => setCustomCategory(e.target.value)}
             placeholder="Enter new category name"
             disabled={uploading}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="block w-full px-3 py-2 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         )}
       </div>
@@ -267,6 +274,12 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
         </p>
         <p className="text-xs text-gray-400 mt-1">Multiple files supported · Max 10MB each</p>
       </div>
+
+      {blockedMsg && (
+        <div className="p-3 rounded-lg border border-red-300 bg-red-50 text-sm text-red-800">
+          {blockedMsg}
+        </div>
+      )}
 
       {/* PDF list */}
       {entries.length > 0 && (
@@ -329,7 +342,7 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
                             value={entry.publishDate}
                             onChange={e => updateEntry(i, { publishDate: e.target.value })}
                             disabled={uploading}
-                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 text-gray-700"
+                            className="w-full px-2 py-1.5 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 text-gray-700"
                           />
                         </div>
 
@@ -354,7 +367,7 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
                                 placeholder="Custom title..."
                                 maxLength={200}
                                 disabled={uploading}
-                                className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+                                className="flex-1 px-2 py-1.5 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
                               />
                               <button
                                 type="button"
@@ -380,7 +393,7 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
                             maxLength={500}
                             rows={2}
                             disabled={uploading}
-                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+                            className="w-full px-2 py-1.5 border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
                           />
                           <p className="text-xs text-gray-400 text-right">{entry.description.length}/500</p>
                         </div>
