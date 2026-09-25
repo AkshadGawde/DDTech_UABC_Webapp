@@ -93,6 +93,7 @@ export const Navbar = ({ isDark, toggleTheme }: NavbarProps) => {
           }))
         : []
     },
+    { name: 'Legislation', path: '/legislation' },
     { name: 'Careers', path: '/careers' },
     { name: 'Contact Us', path: '/contact' },
   ];

@@ -2,19 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, Calendar, FileText, Image, AlertCircle, Check } from 'lucide-react';
 import { authService } from '../services/authService';
+import type { InsightSection } from '../services/insightsService';
+import { SECTION_CONFIG } from '../sections';
 
 interface PDFInsightUploaderProps {
   onUploadSuccess?: (insight: any) => void;
   onUploadError?: (error: string) => void;
   initialCategories?: string[];
+  section?: InsightSection;
 }
 
-const DEFAULT_CATEGORIES = ['Research Papers', 'Interests', 'Regulatory Reports'];
-
-const buildCategoryOptions = (categories: string[] = []) => {
+const buildCategoryOptions = (defaults: string[], categories: string[] = []) => {
   return Array.from(
     new Set(
-      [...DEFAULT_CATEGORIES, ...categories]
+      [...defaults, ...categories]
         .map(category => category.trim())
         .filter(Boolean)
     )
@@ -25,8 +26,11 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
   onUploadSuccess,
   onUploadError,
   initialCategories = [],
+  section = 'insight',
 }) => {
-  const [categoryOptions, setCategoryOptions] = useState<string[]>(() => buildCategoryOptions(initialCategories));
+  const sectionConfig = SECTION_CONFIG[section];
+  const DEFAULT_CATEGORIES = sectionConfig.defaultCategories;
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(() => buildCategoryOptions(DEFAULT_CATEGORIES, initialCategories));
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [featuredImage, setFeaturedImage] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -42,10 +46,11 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
     excerpt?: string;
   } | null>(null);
   const [customTitle, setCustomTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [showCustomTitleInput, setShowCustomTitleInput] = useState(false);
 
   useEffect(() => {
-    setCategoryOptions((currentOptions) => buildCategoryOptions([...currentOptions, ...initialCategories]));
+    setCategoryOptions((currentOptions) => buildCategoryOptions(DEFAULT_CATEGORIES, [...currentOptions, ...initialCategories]));
   }, [initialCategories]);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -126,7 +131,7 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
     }
 
     if (showCustomCategory && trimmedCustomCategory) {
-      setCategoryOptions((currentOptions) => buildCategoryOptions([...currentOptions, trimmedCustomCategory]));
+      setCategoryOptions((currentOptions) => buildCategoryOptions(DEFAULT_CATEGORIES, [...currentOptions, trimmedCustomCategory]));
       setCategory(trimmedCustomCategory);
       setShowCustomCategory(false);
       setCustomCategory('');
@@ -138,11 +143,17 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
       const formData = new FormData();
       formData.append('pdf', pdfFile);
       formData.append('category', selectedCategory);
+      formData.append('section', section);
       formData.append('publishDate', publishDate);
       
       // Include custom title if provided
       if (customTitle.trim()) {
         formData.append('customTitle', customTitle.trim());
+      }
+
+      // Include description if provided (otherwise the server auto-generates one)
+      if (description.trim()) {
+        formData.append('description', description.trim());
       }
       
       // Handle image - either file upload or URL
@@ -206,6 +217,7 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
       setCustomCategory('');
       setShowCustomCategory(false);
       setCustomTitle('');
+      setDescription('');
       setShowCustomTitleInput(false);
       setPreview(null);
 
@@ -233,10 +245,12 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-4">
           <h2 className="text-xl font-semibold text-white flex items-center gap-2">
             <FileText className="w-5 h-5" />
-            Upload PDF Insight
+            Upload PDF {sectionConfig.label}
           </h2>
           <p className="text-blue-100 text-sm mt-1">
-            Upload a PDF document to create a new insight with automatic metadata extraction
+            {section === 'legislation'
+              ? 'Upload a legislation PDF to publish it on the Legislation page'
+              : 'Upload a PDF document to create a new insight with automatic metadata extraction'}
           </p>
         </div>
 
@@ -363,6 +377,32 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
                   </div>
                 </motion.div>
               )}
+            </motion.div>
+          )}
+
+          {/* Description Field */}
+          {pdfFile && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-2 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+            >
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                Description (optional)
+              </label>
+              <p className="text-xs text-gray-600">
+                Shown below this PDF on the website. Leave blank to use a summary generated from the PDF. You can edit it any time later.
+              </p>
+              <textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Write a short description for this PDF..."
+                maxLength={500}
+                rows={4}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <p className="text-xs text-gray-500">{description.length}/500 characters</p>
             </motion.div>
           )}
 

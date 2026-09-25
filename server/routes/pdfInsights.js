@@ -53,6 +53,14 @@ const insightUploadValidation = [
     .optional()
     .isLength({ max: 200 })
     .withMessage("Custom title cannot exceed 200 characters"),
+  body("section")
+    .optional()
+    .isIn(["insight", "legislation"])
+    .withMessage("Section must be 'insight' or 'legislation'"),
+  body("description")
+    .optional()
+    .isLength({ max: 500 })
+    .withMessage("Description cannot exceed 500 characters"),
 ];
 
 const TITLE_BLACKLIST_PATTERNS = [
@@ -247,8 +255,11 @@ const slugify = (text) => {
   return slug || `pdf-${Date.now()}`;
 };
 
-// The R2 object key an insight's PDF is stored under, e.g. "insights-pdfs/foo.pdf".
-const buildPdfObjectKey = (slug) => `insights-pdfs/${slug}.pdf`;
+// The R2 object key a PDF is stored under, e.g. "insights-pdfs/foo.pdf".
+// Legislation PDFs get their own "govt-pdfs/" folder (see config/pdfFolders.js).
+const R2_FOLDERS = require("../config/pdfFolders");
+const buildPdfObjectKey = (slug, section = "insight") =>
+  `${R2_FOLDERS[section] || R2_FOLDERS.insight}/${slug}.pdf`;
 
 // R2 buckets are kept private; every view/download gets a freshly-signed URL
 // rather than a permanently public one. 1 hour is comfortably long enough for
@@ -381,7 +392,9 @@ router.post(
         });
       }
 
-      const { featuredImage, publishDate, category, customTitle } = req.body;
+      const { featuredImage, publishDate, category, customTitle, description } =
+        req.body;
+      const section = req.body.section === "legislation" ? "legislation" : "insight";
       const pdfFile = req.files.pdf[0];
       const imageFile = req.files.image ? req.files.image[0] : null;
 
@@ -420,7 +433,9 @@ router.post(
       const extractedTitle = extractTitleFromPdf(pdfText);
       const fallbackFilenameTitle = cleanPdfTitle(pdfFile.originalname);
       const title = providedTitle || extractedTitle || fallbackFilenameTitle || "Untitled Insight";
-      const excerpt = generateExcerpt(parsedPdf, title);
+      // An admin-written description wins over the auto-generated excerpt.
+      const providedDescription = (description || "").trim();
+      const excerpt = providedDescription || generateExcerpt(parsedPdf, title);
       const author = extractAuthorFromPdf(pdfText);
 
       console.log("📝 Extracted metadata:");
@@ -437,7 +452,7 @@ router.post(
       console.log("  - PDF Slug/Filename:", pdfSlug);
 
       // Upload to R2 with deterministic naming.
-      const pdfPublicId = buildPdfObjectKey(pdfSlug);
+      const pdfPublicId = buildPdfObjectKey(pdfSlug, section);
       try {
         await s3Client.send(
           new PutObjectCommand({
@@ -480,7 +495,9 @@ router.post(
       const insightData = {
         title,
         slug: pdfSlug,
+        section,
         excerpt,
+        excerptCustom: Boolean(providedDescription),
         author: author || "Unknown Author",
         category: category || "General",
         pdfUrl: pdfUrl,

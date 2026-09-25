@@ -2,6 +2,14 @@ const mongoose = require("mongoose");
 
 const insightSchema = new mongoose.Schema(
   {
+    // Which area of the site this document belongs to. Legislation PDFs live in
+    // the same collection (so all admin tooling is shared) but are kept out of
+    // every public /insights listing and stored under their own R2 folder.
+    section: {
+      type: String,
+      enum: ["insight", "legislation"],
+      default: "insight",
+    },
     // Auto-extracted from PDF
     title: {
       type: String,
@@ -13,6 +21,12 @@ const insightSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: [500, "Excerpt cannot exceed 500 characters"],
+    },
+    // True once an admin has written/edited the description by hand, so the
+    // auto-generated excerpt logic (e.g. regenerateExcerpts.js) never overwrites it.
+    excerptCustom: {
+      type: Boolean,
+      default: false,
     },
     // Cloudinary PDF URL (optional - only for PDF insights)
     pdfUrl: {
@@ -135,6 +149,7 @@ insightSchema.index({ published: 1, createdAt: -1 });
 insightSchema.index({ category: 1, published: 1 });
 insightSchema.index({ tags: 1 });
 insightSchema.index({ pdfPublicId: 1 });
+insightSchema.index({ section: 1, published: 1, createdAt: -1 });
 // Slug index handled by unique: true above
 
 // Static methods

@@ -3,9 +3,12 @@ import { getApiUrl } from '../../config/apiConfig';
 
 const API_URL = getApiUrl();
 
+export type InsightSection = 'insight' | 'legislation';
+
 export interface Insight {
   _id?: string;
   id?: string;
+  section?: InsightSection;
   title: string;
   excerpt: string;
   content?: string;
@@ -37,6 +40,7 @@ export interface InsightFilters {
   status?: 'all' | 'published' | 'draft';
   category?: string;
   search?: string;
+  section?: InsightSection;
   sort?: 'newest' | 'oldest' | 'updated' | 'popular';
 }
 
@@ -78,6 +82,7 @@ class InsightsService {
       if (filters.limit) params.append('limit', filters.limit.toString());
       if (filters.category) params.append('category', filters.category);
       if (filters.search) params.append('search', filters.search);
+      if (filters.section) params.append('section', filters.section);
       if (filters.sort) params.append('sort', filters.sort);
       
       const url = `${API_URL}/insights?${params}`;
@@ -125,6 +130,23 @@ class InsightsService {
           hasPrev: false
         }
       };
+    }
+  }
+
+  // Published legislation PDFs (public). Unlike getPublicInsights this throws on
+  // failure so the page can show an error instead of a misleading empty list.
+  async getPublicLegislation(): Promise<Insight[]> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    try {
+      const params = new URLSearchParams({ section: 'legislation', limit: '1000', sort: 'newest' });
+      const response = await fetch(`${API_URL}/insights?${params}`, { signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message || 'Failed to fetch legislation');
+      return (data.data?.insights || []).filter((i: Insight) => i.published);
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 

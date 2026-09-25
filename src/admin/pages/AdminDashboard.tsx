@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Eye, Edit, Trash2, Star, Globe, Clock, LogOut, Upload, CheckSquare, Square } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { insightsService, Insight } from '../services/insightsService';
+import { insightsService, Insight, type InsightSection } from '../services/insightsService';
+import { SECTION_CONFIG } from '../sections';
 import { authService } from '../services/authService';
 import { AdminSetup } from '../components/AdminSetup';
 import PDFInsightUploader from '../components/PDFInsightUploader';
@@ -11,6 +12,7 @@ import { getApiUrl } from '../../config/apiConfig';
 
 export const AdminDashboard = () => {
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [section, setSection] = useState<InsightSection>('insight');
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState<'all' | 'published' | 'drafts'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -213,8 +215,18 @@ export const AdminDashboard = () => {
     await loadInsights();
   };
 
+  const switchSection = (next: InsightSection) => {
+    if (next === section) return;
+    setSection(next);
+    setSelectedCategory('all');
+    setSelectedTab('all');
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+    setIsSelecting(false);
+  };
+
   const handleUploadSuccess = (insight: any) => {
-    setSuccessMessage(`PDF insight "${insight.title}" uploaded successfully!`);
+    setSuccessMessage(`PDF ${SECTION_CONFIG[section].label.toLowerCase()} "${insight.title}" uploaded successfully!`);
     setShowUploader(false);
     loadInsights();
     // Clear success message after 5 seconds
@@ -253,7 +265,10 @@ export const AdminDashboard = () => {
 
   const ITEMS_PER_PAGE = 20;
 
-  const filteredInsights = insights.filter(insight => {
+  // Documents created before sections existed have no `section`; they are insights.
+  const sectionInsights = insights.filter(i => (i.section || 'insight') === section);
+
+  const filteredInsights = sectionInsights.filter(insight => {
     // Filter by status tab
     const statusMatch = selectedTab === 'all' || 
       (selectedTab === 'published' && insight.published) ||
@@ -272,13 +287,13 @@ export const AdminDashboard = () => {
   const paginatedInsights = filteredInsights.slice(startIndex, endIndex);
 
   // Extract unique categories from insights
-  const categories = ['all', ...Array.from(new Set(insights.map(i => i.category).filter(Boolean)))];
+  const categories = ['all', ...Array.from(new Set(sectionInsights.map(i => i.category).filter(Boolean)))];
 
   const stats = {
-    total: insights.length,
-    published: insights.filter(i => i.published).length,
-    drafts: insights.filter(i => !i.published).length,
-    featured: insights.filter(i => i.featured).length
+    total: sectionInsights.length,
+    published: sectionInsights.filter(i => i.published).length,
+    drafts: sectionInsights.filter(i => !i.published).length,
+    featured: sectionInsights.filter(i => i.featured).length
   };
 
   // Inline setup flow if needed
@@ -330,13 +345,15 @@ export const AdminDashboard = () => {
                 <Upload className="w-4 h-4" />
                 Upload PDF
               </button>
-              <a
-                href="/admin/insights/new"
-                className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Manual Entry
-              </a>
+              {section === 'insight' && (
+                <a
+                  href="/admin/insights/new"
+                  className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Manual Entry
+                </a>
+              )}
               <button
                 onClick={logout}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center gap-2"
@@ -384,7 +401,7 @@ export const AdminDashboard = () => {
               className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
             >
               <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Upload PDF Insight</h2>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Upload PDF {SECTION_CONFIG[section].label}</h2>
                 <button
                   onClick={() => setShowUploader(false)}
                   className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
@@ -393,6 +410,7 @@ export const AdminDashboard = () => {
                 </button>
               </div>
               <PDFInsightUploader
+                section={section}
                 onUploadSuccess={handleUploadSuccess}
                 onUploadError={handleUploadError}
                 initialCategories={categories.filter(category => category !== 'all')}
@@ -426,6 +444,7 @@ export const AdminDashboard = () => {
                 </button>
               </div>
               <BulkPDFUploader
+                section={section}
                 initialCategories={categories.filter(c => c !== 'all')}
                 onCancel={() => setShowBulkUploader(false)}
                 onComplete={(successCount, errorCount) => {
@@ -470,10 +489,44 @@ export const AdminDashboard = () => {
             </div>
           </div>
         )}
+        {/* Section Toggle: Insights / Legislation */}
+        <div
+          role="tablist"
+          aria-label="Content section"
+          className="mb-6 inline-flex p-1 rounded-xl bg-slate-200/70 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+        >
+          {(Object.keys(SECTION_CONFIG) as InsightSection[]).map((key) => {
+            const count = insights.filter(i => (i.section || 'insight') === key).length;
+            const active = section === key;
+            return (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={active}
+                onClick={() => switchSection(key)}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
+                  active
+                    ? 'bg-white dark:bg-slate-700 text-accent-600 dark:text-accent-400 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                {SECTION_CONFIG[key].tabLabel}
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  active
+                    ? 'bg-accent-100 dark:bg-accent-900/40 text-accent-700 dark:text-accent-300'
+                    : 'bg-slate-300/60 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Stats Cards */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           {[
-            { label: 'Total Insights', value: stats.total, color: 'bg-blue-500' },
+            { label: section === 'legislation' ? 'Total Documents' : 'Total Insights', value: stats.total, color: 'bg-blue-500' },
             { label: 'Published', value: stats.published, color: 'bg-green-500' },
             { label: 'Drafts', value: stats.drafts, color: 'bg-yellow-500' },
             { label: 'Featured', value: stats.featured, color: 'bg-purple-500' }

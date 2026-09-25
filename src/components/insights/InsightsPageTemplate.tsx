@@ -240,7 +240,7 @@ export const InsightsPageTemplate = ({ pageTitle, category }: InsightsPageTempla
                     {/* Body: text + image */}
                     <div className="flex gap-5 items-start">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm md:text-base text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-4">
+                        <p className="text-sm md:text-base text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                           {insight.excerpt}
                         </p>
 

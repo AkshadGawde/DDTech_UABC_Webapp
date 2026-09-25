@@ -31,12 +31,15 @@ const run = async () => {
   await mongoose.connect(mongoUri);
   console.log("✅ Connected to MongoDB");
 
+  // Skip descriptions an admin wrote/edited by hand (excerptCustom) - those
+  // must never be overwritten by the auto-generated version.
   const insights = await Insight.find({
     pdfUrl: { $exists: true, $ne: null },
+    excerptCustom: { $ne: true },
   });
 
   console.log(
-    `Found ${insights.length} PDF insights. Mode: ${APPLY ? "APPLY" : "DRY RUN"}\n`,
+    `Found ${insights.length} auto-described PDF insights. Mode: ${APPLY ? "APPLY" : "DRY RUN"}\n`,
   );
 
   let updated = 0;

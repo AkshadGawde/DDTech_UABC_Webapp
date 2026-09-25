@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Save, Eye, ArrowLeft, Upload, X, FileText, Calendar, Tag, Globe } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { SECTION_CONFIG } from '../sections';
 import { insightsService, CreateInsightData, Insight } from '../services/insightsService';
 
 const categories = [
@@ -37,8 +38,22 @@ export const InsightEditor = () => {
     title: '',
     image: '',
     category: '',
-    publishDate: ''
+    publishDate: '',
+    description: ''
   });
+
+  // Section-appropriate choices, always including the item's current category so
+  // the dropdown never shows a different value than what will be saved.
+  const pdfCategoryOptions = Array.from(
+    new Set(
+      [
+        pdfEditData.category,
+        ...(pdfInsight?.section === 'legislation'
+          ? SECTION_CONFIG.legislation.defaultCategories
+          : categories),
+      ].filter(Boolean)
+    )
+  );
 
   useEffect(() => {
     if (isEdit) {
@@ -65,7 +80,8 @@ export const InsightEditor = () => {
           category: insight.category || 'Technology',
           publishDate: insight.publishDate
             ? new Date(insight.publishDate).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0],
+          description: insight.excerpt || ''
         });
         return;
       }
@@ -121,7 +137,7 @@ export const InsightEditor = () => {
     }));
   };
 
-  const handlePdfEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handlePdfEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setPdfEditData(prev => ({
       ...prev,
@@ -137,6 +153,12 @@ export const InsightEditor = () => {
       return;
     }
 
+    const description = pdfEditData.description.trim();
+    if (!description) {
+      alert('Description cannot be empty');
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -144,7 +166,9 @@ export const InsightEditor = () => {
         title: pdfEditData.title.trim(),
         category: pdfEditData.category,
         publishDate: new Date(pdfEditData.publishDate).toISOString(),
-        featuredImage: pdfEditData.image || undefined
+        featuredImage: pdfEditData.image || undefined,
+        // Only send when changed so untouched auto-generated summaries stay auto-managed
+        ...(description !== (pdfInsight.excerpt || '').trim() ? { excerpt: description } : {})
       });
 
       if (res.success) {
@@ -278,6 +302,27 @@ export const InsightEditor = () => {
                   />
                 </div>
 
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <FileText className="w-4 h-4 inline mr-2" />
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    value={pdfEditData.description}
+                    onChange={handlePdfEditChange}
+                    maxLength={500}
+                    rows={4}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-accent-500 focus:border-transparent"
+                    placeholder="Short description shown below this PDF on the website..."
+                  />
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 flex justify-between">
+                    <span>Shown below the PDF on the public Insights page.</span>
+                    <span>{pdfEditData.description.length}/500</span>
+                  </p>
+                </div>
+
                 {/* Category */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -290,7 +335,7 @@ export const InsightEditor = () => {
                     onChange={handlePdfEditChange}
                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-accent-500 focus:border-transparent"
                   >
-                    {categories.map(cat => (
+                    {pdfCategoryOptions.map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>

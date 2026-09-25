@@ -2,6 +2,7 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const Insight = require("../models/Insight");
 const { authenticateToken, requireEditor } = require("../middleware/auth");
+const PDF_FOLDERS = require("../config/pdfFolders");
 
 const router = express.Router();
 
@@ -122,6 +123,16 @@ router.get("/", async (req, res) => {
     const sort = req.query.sort || 'newest';
 
     const query = { published: true };
+
+    // Legislation shares the collection but must never leak into Insights
+    // listings; existing documents without a section count as insights.
+    if (req.query.section === "legislation") {
+      query.section = "legislation";
+      // The Legislation page only ever lists PDFs stored in its own R2 folder.
+      query.pdfPublicId = { $regex: `^${PDF_FOLDERS.legislation}/` };
+    } else {
+      query.section = { $ne: "legislation" };
+    }
 
     // Add category filter if provided and not 'All'
     if (category && category !== 'All') {
@@ -246,7 +257,30 @@ router.post("/", authenticateToken, requireEditor, async (req, res) => {
 
 router.put("/:id", authenticateToken, requireEditor, async (req, res) => {
   try {
-    const insight = await Insight.findByIdAndUpdate(req.params.id, req.body, {
+    const update = { ...req.body };
+    // Only the server decides whether an excerpt counts as hand-written, and a
+    // document's section (which fixes its R2 folder) can't be changed after upload.
+    delete update.excerptCustom;
+    delete update.section;
+
+    if (typeof update.excerpt === "string") {
+      const excerpt = update.excerpt.trim();
+      if (excerpt.length > 500) {
+        return res.status(400).json({
+          success: false,
+          message: "Description cannot exceed 500 characters",
+        });
+      }
+      if (excerpt) {
+        update.excerpt = excerpt;
+        update.excerptCustom = true;
+      } else {
+        // Never blank out what the website displays.
+        delete update.excerpt;
+      }
+    }
+
+    const insight = await Insight.findByIdAndUpdate(req.params.id, update, {
       new: true,
     });
 

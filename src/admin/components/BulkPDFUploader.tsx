@@ -2,11 +2,14 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, Check, X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { authService } from '../services/authService';
+import type { InsightSection } from '../services/insightsService';
+import { SECTION_CONFIG } from '../sections';
 
 interface PDFEntry {
   file: File;
   customTitle: string;
   showTitleInput: boolean;
+  description: string;
   publishDate: string;
   status: 'pending' | 'uploading' | 'done' | 'error';
   errorMsg?: string;
@@ -14,15 +17,14 @@ interface PDFEntry {
 
 interface BulkPDFUploaderProps {
   initialCategories?: string[];
+  section?: InsightSection;
   onComplete?: (successCount: number, errorCount: number) => void;
   onCancel?: () => void;
 }
 
-const DEFAULT_CATEGORIES = ['Research Papers', 'Interests', 'Regulatory Reports'];
-
-const buildCategoryOptions = (categories: string[] = []) =>
+const buildCategoryOptions = (defaults: string[], categories: string[] = []) =>
   Array.from(
-    new Set([...DEFAULT_CATEGORIES, ...categories].map(c => c.trim()).filter(Boolean))
+    new Set([...defaults, ...categories].map(c => c.trim()).filter(Boolean))
   );
 
 const today = () => new Date().toISOString().split('T')[0];
@@ -62,13 +64,15 @@ const extractDateFromFilename = (filename: string): string => {
 
 const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
   initialCategories = [],
+  section = 'insight',
   onComplete,
   onCancel,
 }) => {
+  const DEFAULT_CATEGORIES = SECTION_CONFIG[section].defaultCategories;
   const [entries, setEntries] = useState<PDFEntry[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [categoryOptions] = useState<string[]>(() =>
-    buildCategoryOptions(initialCategories)
+    buildCategoryOptions(DEFAULT_CATEGORIES, initialCategories)
   );
   const [sharedCategory, setSharedCategory] = useState(DEFAULT_CATEGORIES[0]);
   const [customCategory, setCustomCategory] = useState('');
@@ -88,6 +92,7 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
         file,
         customTitle: '',
         showTitleInput: false,
+        description: '',
         publishDate: extractDateFromFilename(file.name),
         status: 'pending' as const,
       })),
@@ -137,9 +142,13 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
         const formData = new FormData();
         formData.append('pdf', entry.file);
         formData.append('category', category);
+        formData.append('section', section);
         formData.append('publishDate', entry.publishDate);
         if (entry.customTitle.trim()) {
           formData.append('customTitle', entry.customTitle.trim());
+        }
+        if (entry.description.trim()) {
+          formData.append('description', entry.description.trim());
         }
 
         const res = await fetch(`${apiUrl}/pdf-insights/upload`, {
@@ -357,6 +366,23 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
                               </button>
                             </div>
                           )}
+                        </div>
+
+                        {/* Description */}
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs text-gray-500 mb-1">
+                            Description <span className="text-gray-400">(optional — shown below the PDF on the website)</span>
+                          </label>
+                          <textarea
+                            value={entry.description}
+                            onChange={e => updateEntry(i, { description: e.target.value })}
+                            placeholder="Leave blank to auto-generate from the PDF..."
+                            maxLength={500}
+                            rows={2}
+                            disabled={uploading}
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+                          />
+                          <p className="text-xs text-gray-400 text-right">{entry.description.length}/500</p>
                         </div>
                       </div>
                     )}

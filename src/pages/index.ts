@@ -9,6 +9,7 @@ export { ServicesPage } from './ServicesPage';
 export { EmployeeBenefits } from './Services/EmployeeBenefits';
 export { Insights } from './Insights';
 export { InsightsCategory } from './InsightsCategory';
+export { Legislation } from './Legislation';
 export { Careers } from './Careers';
 export { ContactUs } from './ContactUs';
 export { default as InsuranceConsulting } from './Services/InsuranceConsulting';
