@@ -12,6 +12,7 @@ interface TeamMember {
   bio: string;
   stats: { value: string; label: string }[];
   image: string;
+  imageSize?: [number, number];
   /** Tailwind object-position override for the grid card crop (defaults to object-top). */
   gridImageClass?: string;
 }
@@ -30,6 +31,7 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '3', label: 'Global GAAP Frameworks' },
     ],
     image: '/amit-yogi.jpg',
+    imageSize: [2048, 2048],
   },
   {
     id: 'hrishikesh-jadhav',
@@ -43,6 +45,7 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '8', label: 'Actuarial Papers Cleared' },
     ],
     image: '/hrishikesh-jadhav.jpg',
+    imageSize: [1456, 1540],
   },
   {
     id: 'aditya-ghate',
@@ -56,6 +59,7 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '10', label: 'Actuarial Papers Cleared' },
     ],
     image: '/aditya-ghate.jpg',
+    imageSize: [1844, 2304],
     gridImageClass: 'object-[center_25%]',
   },
   {
@@ -70,6 +74,7 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '8', label: 'Actuarial Papers Cleared' },
     ],
     image: '/rashi-ranawat.jpg',
+    imageSize: [2016, 2132],
   },
   {
     id: 'nupoor-joshi',
@@ -80,6 +85,7 @@ const TEAM_MEMBERS: TeamMember[] = [
     bio: 'Nupoor Joshi serves as an Actuarial Consultant, contributing over two years of focused industry experience to the firm\'s actuarial practice. She partners with a diverse spectrum of publicly listed, private, and multinational organizations, supporting corporate clients across end-to-end employee benefit valuation mandates.\n\nHer core technical focus is dedicated to the valuation and accounting of short- and long-term Employee Benefits, including Gratuity schemes, Leave encashment policies, and Long Service Benefits. She is well-versed in preparing statutory actuarial disclosures across multiple accounting standards, including IGAAP, IFRS, US GAAP, and various regional reporting frameworks. In her day-to-day analytical work, Nupoor configures plan-specific parameters, analyzes data trends for assumption setting, and conducts granular liability movement analyses for peer reviews.\n\nNupoor plays an active role in strategic advisory assignments, assisting numerous organizations with the restructuring of their wage structures to ensure full compliance with India\'s New Labour Codes. Additionally, she contributes to the firm\'s research initiatives by co-authoring white papers, industry reports, and regulatory updates on emerging benefit trends. Demonstrating strong communication and relationship-building abilities, she effectively interfaces with stakeholders to resolve auditor queries and support ongoing client requirements.',
     stats: [{ value: '2+', label: 'Years of Experience' }],
     image: '/nupoor-joshi.jpg',
+    imageSize: [2016, 2132],
   },
   {
     id: 'raghav-sivaganesan',
@@ -93,6 +99,7 @@ const TEAM_MEMBERS: TeamMember[] = [
       { value: '6', label: 'Actuarial Papers Cleared' },
     ],
     image: '/raghav.png',
+    imageSize: [1420, 1518],
   },
   {
     id: 'khushi-sawant',
@@ -103,6 +110,7 @@ const TEAM_MEMBERS: TeamMember[] = [
     bio: 'Khushi Sawant works as an Actuarial Consultant, contributing over a year of dedicated consulting experience to the firm\'s actuarial practice.\n\nHer domain expertise lies in the valuation and accounting of mandatory and voluntary Employee Benefits, spanning Gratuity programs, Leave schemes, and Long Service Benefits. Khushi regularly executes actuarial reporting in accordance with major financial accounting standards, including IGAAP, IFRS, US GAAP, and various country-specific local GAAPs. Her analytical responsibilities include conducting detailed trend analyses to calibrate demographic and financial assumptions, as well as breaking down liability movements for rigorous peer reviews.\n\nKhushi brings strong interpersonal and communication skills to client engagements, actively collaborating with cross-functional corporate teams. She plays an essential role in addressing client inquiries, liaising directly with statutory auditors on actuarial audit queries, and ensuring seamless delivery across diverse statutory reporting mandates.',
     stats: [{ value: '1+', label: 'Years of Experience' }],
     image: '/khushi-sawant.jpg',
+    imageSize: [1952, 2196],
     gridImageClass: 'object-[center_25%]',
   },
 ];
@@ -133,6 +141,8 @@ const MemberPhoto = ({
     <img
       src={member.image}
       alt={`${member.firstName} ${member.lastName}`}
+      width={member.imageSize?.[0]}
+      height={member.imageSize?.[1]}
       loading="lazy"
       onError={() => setImageFailed(true)}
       className={imgClassName}
@@ -306,11 +316,11 @@ export const Team = () => {
                     <div className="p-[3px] rounded-2xl bg-black shadow-xl">
                       {/* Inner Frame */}
                       <div className="rounded-2xl bg-white dark:bg-dark-card p-3">
-                        <div className="rounded-xl overflow-hidden bg-gradient-to-br from-brand-700 via-brand-800 to-dark-bg">
+                        <div className="rounded-xl overflow-hidden">
                           <MemberPhoto
                             member={active}
-                            initialsClassName="text-5xl text-white/90 aspect-square"
-                            imgClassName="w-full h-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                            initialsClassName="text-5xl text-white/90 aspect-square bg-gradient-to-br from-brand-700 via-brand-800 to-dark-bg"
+                            imgClassName="block w-full h-auto transition-transform duration-300 group-hover:scale-[1.02]"
                           />
                         </div>
                       </div>

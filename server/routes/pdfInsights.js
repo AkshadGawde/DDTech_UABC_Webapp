@@ -4,7 +4,13 @@ const pdfParse = require("pdf-parse");
 const { body, validationResult } = require("express-validator");
 const Insight = require("../models/Insight");
 const { authenticateToken, requireEditor } = require("../middleware/auth");
-const cloudinary = require("../config/cloudinary");
+const { s3Client, R2_BUCKET } = require("../config/r2");
+const {
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
 const router = express.Router();
 
@@ -241,55 +247,22 @@ const slugify = (text) => {
   return slug || `pdf-${Date.now()}`;
 };
 
-const normalizePdfPublicId = (publicId) => {
-  if (!publicId) return "";
-  return publicId.replace(/\.pdf$/i, "").trim();
-};
+// The R2 object key an insight's PDF is stored under, e.g. "insights-pdfs/foo.pdf".
+const buildPdfObjectKey = (slug) => `insights-pdfs/${slug}.pdf`;
 
-const extractVersionFromPdfUrl = (url) => {
-  if (!url) return undefined;
-  const match = url.match(/\/v(\d+)\//);
-  return match ? match[1] : undefined;
-};
+// R2 buckets are kept private; every view/download gets a freshly-signed URL
+// rather than a permanently public one. 1 hour is comfortably long enough for
+// someone to view or download a PDF in one sitting.
+const PDF_URL_EXPIRY_SECONDS = 60 * 60;
 
-const extractPublicIdFromPdfUrl = (url) => {
-  if (!url) return "";
-
-  const sanitizedUrl = url.split("?")[0];
-  const match = sanitizedUrl.match(
-    /\/upload\/(?:fl_attachment:false\/)?(?:v\d+\/)?(.+?)(?:\.pdf)?$/i,
-  );
-
-  return normalizePdfPublicId(match ? match[1] : "");
-};
-
-// Cloudinary's free plan gives 25 credits/month (storage + bandwidth + transformations
-// combined). We pause new uploads once usage crosses this ceiling so a burst of activity
-// doesn't push the account into overage.
-const CLOUDINARY_CREDIT_CEILING = Number(process.env.CLOUDINARY_CREDIT_CEILING) || 20;
-const CLOUDINARY_CREDIT_PLAN_LIMIT = 25;
-
-const getCloudinaryCreditsUsed = async () => {
-  const usage = await cloudinary.api.usage();
-  if (typeof usage?.credits?.usage === "number") {
-    return usage.credits.usage;
-  }
-  // Older/self-hosted plans don't report a combined `credits` field - derive it.
-  return (
-    (usage?.storage?.credits_usage || 0) +
-    (usage?.bandwidth?.credits_usage || 0) +
-    (usage?.transformations?.credits_usage || 0)
-  );
-};
-
-const getInlinePdfUrl = ({ publicId, version }) => {
-  return cloudinary.url(normalizePdfPublicId(publicId), {
-    resource_type: "raw",
-    type: "upload",
-    secure: true,
-    version,
-    format: "pdf",
+const getSignedPdfUrl = (objectKey) => {
+  const command = new GetObjectCommand({
+    Bucket: R2_BUCKET,
+    Key: objectKey,
+    ResponseContentType: "application/pdf",
+    ResponseContentDisposition: "inline",
   });
+  return getSignedUrl(s3Client, command, { expiresIn: PDF_URL_EXPIRY_SECONDS });
 };
 
 // Helper function to extract author from PDF text
@@ -408,26 +381,6 @@ router.post(
         });
       }
 
-      console.log("📊 Checking Cloudinary credit usage...");
-      try {
-        const creditsUsed = await getCloudinaryCreditsUsed();
-        console.log(
-          `  - Credits used: ${creditsUsed.toFixed(2)} / ${CLOUDINARY_CREDIT_PLAN_LIMIT} (ceiling: ${CLOUDINARY_CREDIT_CEILING})`,
-        );
-        if (creditsUsed >= CLOUDINARY_CREDIT_CEILING) {
-          console.log("❌ Cloudinary credit ceiling reached, blocking upload");
-          return res.status(507).json({
-            success: false,
-            message: `Cloudinary usage is at ${creditsUsed.toFixed(1)}/${CLOUDINARY_CREDIT_PLAN_LIMIT} credits. Uploads are paused to stay under the monthly limit - delete unused PDFs or wait for next month's reset.`,
-          });
-        }
-      } catch (usageCheckError) {
-        console.error(
-          "⚠️  Could not verify Cloudinary usage, proceeding with upload:",
-          usageCheckError.message,
-        );
-      }
-
       const { featuredImage, publishDate, category, customTitle } = req.body;
       const pdfFile = req.files.pdf[0];
       const imageFile = req.files.image ? req.files.image[0] : null;
@@ -476,9 +429,6 @@ router.post(
       console.log("  - Author:", author || "Unknown");
       console.log("  - Excerpt length:", excerpt.length);
 
-      // Convert PDF buffer to base64
-      const base64Pdf = `data:application/pdf;base64,${pdfFile.buffer.toString("base64")}`;
-
       // Include publish date in slug so PDFs with identical titles get unique slugs
       const dateForSlug = publishDate
         ? new Date(publishDate).toISOString().split("T")[0]
@@ -486,33 +436,28 @@ router.post(
       const pdfSlug = slugify(`${title}-${dateForSlug}`);
       console.log("  - PDF Slug/Filename:", pdfSlug);
 
-      // Upload to Cloudinary with deterministic naming and inline viewing support.
-      let uploadResult;
+      // Upload to R2 with deterministic naming.
+      const pdfPublicId = buildPdfObjectKey(pdfSlug);
       try {
-        uploadResult = await cloudinary.uploader.upload(base64Pdf, {
-          resource_type: "raw",
-          folder: "insights-pdfs",
-          public_id: pdfSlug,
-          format: "pdf",
-          use_filename: false,
-          unique_filename: false,
-          overwrite: true,
-          access_mode: "public",
-          timeout: 120000,
-        });
+        await s3Client.send(
+          new PutObjectCommand({
+            Bucket: R2_BUCKET,
+            Key: pdfPublicId,
+            Body: pdfFile.buffer,
+            ContentType: "application/pdf",
+          }),
+        );
       } catch (uploadError) {
-        console.error("❌ Cloudinary upload error:", uploadError.message);
-        throw new Error(`Failed to upload PDF to Cloudinary: ${uploadError.message}`);
+        console.error("❌ R2 upload error:", uploadError.message);
+        throw new Error(`Failed to upload PDF to R2: ${uploadError.message}`);
       }
 
-      const pdfPublicId = normalizePdfPublicId(uploadResult.public_id);
-      const pdfVersion = uploadResult.version ? String(uploadResult.version) : undefined;
-      const pdfUrl = getInlinePdfUrl({
-        publicId: pdfPublicId,
-        version: pdfVersion,
-      });
+      // Stored only as the initial value shown in the admin response - the
+      // site always re-derives a fresh signed URL from pdfPublicId on view,
+      // since signed URLs expire (see GET /:id/pdf below).
+      const pdfUrl = await getSignedPdfUrl(pdfPublicId);
 
-      console.log("🔗 PDF URL from Cloudinary:", pdfUrl);
+      console.log("🔗 PDF stored in R2 at:", pdfPublicId);
       console.log("✅ PDF will download as:", `${pdfSlug}.pdf`);
 
       // Handle image - either uploaded file or URL
@@ -540,7 +485,6 @@ router.post(
         category: category || "General",
         pdfUrl: pdfUrl,
         pdfPublicId,
-        pdfVersion,
         pdfOriginalFilename: pdfFile.originalname,
         featuredImage: finalImageUrl,
         publishDate: publishDate ? new Date(publishDate) : new Date(),
@@ -590,7 +534,7 @@ router.post(
 );
 
 // @route   DELETE /api/pdf-insights/:id
-// @desc    Delete a PDF insight (removes from MongoDB and Cloudinary)
+// @desc    Delete a PDF insight (removes from MongoDB and R2)
 // @access  Private (Editor+)
 router.delete("/:id", authenticateToken, requireEditor, async (req, res) => {
   try {
@@ -608,7 +552,7 @@ router.delete("/:id", authenticateToken, requireEditor, async (req, res) => {
       });
     }
 
-    // Find the insight first to get the Cloudinary URL
+    // Find the insight first to get the R2 object key
     const insight = await Insight.findById(id);
 
     if (!insight) {
@@ -619,29 +563,22 @@ router.delete("/:id", authenticateToken, requireEditor, async (req, res) => {
       });
     }
 
-    // Delete from Cloudinary if PDF metadata exists
-    if (insight.pdfPublicId || insight.pdfUrl) {
+    // Delete from R2 if PDF metadata exists
+    if (insight.pdfPublicId) {
       try {
-        const publicId = normalizePdfPublicId(
-          insight.pdfPublicId || extractPublicIdFromPdfUrl(insight.pdfUrl),
+        console.log("📤 Deleting from R2:", insight.pdfPublicId);
+
+        await s3Client.send(
+          new DeleteObjectCommand({
+            Bucket: R2_BUCKET,
+            Key: insight.pdfPublicId,
+          }),
         );
 
-        if (publicId) {
-          console.log("📤 Deleting from Cloudinary:", publicId);
-
-          await cloudinary.uploader.destroy(publicId, {
-            resource_type: "raw",
-            type: "upload",
-          });
-
-          console.log("✅ Deleted from Cloudinary:", publicId);
-        }
-      } catch (cloudinaryError) {
-        console.error(
-          "⚠️  Cloudinary deletion warning:",
-          cloudinaryError.message,
-        );
-        // Don't fail the entire operation if Cloudinary deletion fails
+        console.log("✅ Deleted from R2:", insight.pdfPublicId);
+      } catch (r2Error) {
+        console.error("⚠️  R2 deletion warning:", r2Error.message);
+        // Don't fail the entire operation if R2 deletion fails
         // Continue with MongoDB deletion
       }
     }
@@ -673,7 +610,7 @@ router.get("/:id/pdf", async (req, res) => {
     const { id } = req.params;
 
     const insight = await Insight.findById(id).select(
-      "pdfUrl pdfPublicId pdfVersion published title",
+      "pdfUrl pdfPublicId published title",
     );
 
     if (!insight || !insight.published) {
@@ -683,23 +620,17 @@ router.get("/:id/pdf", async (req, res) => {
       });
     }
 
-    if (!insight.pdfUrl) {
+    if (!insight.pdfPublicId && !insight.pdfUrl) {
       return res.status(404).json({
         success: false,
         message: "PDF URL not found for this insight",
       });
     }
 
-    const derivedPublicId = normalizePdfPublicId(
-      insight.pdfPublicId || extractPublicIdFromPdfUrl(insight.pdfUrl),
-    );
-    const derivedVersion = insight.pdfVersion || extractVersionFromPdfUrl(insight.pdfUrl);
-
-    const pdfUrl = derivedPublicId
-      ? getInlinePdfUrl({
-          publicId: derivedPublicId,
-          version: derivedVersion,
-        })
+    // Always mint a fresh signed URL from the stored R2 key rather than trust
+    // insight.pdfUrl, since signed URLs expire (see PDF_URL_EXPIRY_SECONDS).
+    const pdfUrl = insight.pdfPublicId
+      ? await getSignedPdfUrl(insight.pdfPublicId)
       : insight.pdfUrl;
 
     console.log("📄 Serving inline PDF URL:", pdfUrl);
@@ -715,6 +646,44 @@ router.get("/:id/pdf", async (req, res) => {
       success: false,
       message: "Server error while serving PDF",
     });
+  }
+});
+
+// @route   GET /api/pdf-insights/:id/download
+// @desc    Permanent, never-expiring link to a PDF - safe to send to clients
+//          and government agencies. It never returns the signed URL itself;
+//          it 302-redirects to a freshly-signed one on every request, so the
+//          link people save/share stays valid forever even though the actual
+//          R2 URL underneath it rotates and expires.
+// @access  Public (for published insights)
+router.get("/:id/download", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).send("Invalid link");
+    }
+
+    const insight = await Insight.findById(id).select(
+      "pdfUrl pdfPublicId published title slug",
+    );
+
+    if (!insight || !insight.published) {
+      return res.status(404).send("PDF not found");
+    }
+
+    if (!insight.pdfPublicId && !insight.pdfUrl) {
+      return res.status(404).send("PDF not found");
+    }
+
+    const pdfUrl = insight.pdfPublicId
+      ? await getSignedPdfUrl(insight.pdfPublicId)
+      : insight.pdfUrl;
+
+    res.redirect(302, pdfUrl);
+  } catch (error) {
+    console.error("PDF download redirect error:", error);
+    res.status(500).send("Server error while serving PDF");
   }
 });
 

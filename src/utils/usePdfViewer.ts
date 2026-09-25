@@ -55,7 +55,9 @@ export const usePdfViewer = () => {
     const id = insight._id || insight.id;
     if (!insight.pdfUrl || !id) return;
     try {
-      const url = await insightsService.getPdfViewerUrl(id);
+      // Permanent link - safe to send to clients/government agencies, unlike
+      // the short-lived signed URL used for in-page viewing.
+      const url = insightsService.getPermanentPdfUrl(id);
       await navigator.clipboard.writeText(url);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 2000);

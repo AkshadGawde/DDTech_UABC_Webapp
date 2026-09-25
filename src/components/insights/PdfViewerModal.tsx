@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, X, Download, ExternalLink, AlertCircle, Link as LinkIcon } from 'lucide-react';
 import type { PdfViewerState } from '../../utils/usePdfViewer';
 import { formatInsightDate, getInsightDate } from '../../utils/insightsHelpers';
+import { insightsService } from '../../admin/services/insightsService';
 
 interface PdfViewerModalProps {
   pdfViewer: PdfViewerState;
@@ -11,6 +12,12 @@ interface PdfViewerModalProps {
 }
 
 export const PdfViewerModal = ({ pdfViewer, onClose, onRetry, onCopyLink }: PdfViewerModalProps) => {
+  // Download/open-in-new-tab should use the permanent link too - the raw
+  // pdfViewer.url is a signed URL that expires in an hour, which would break
+  // if someone leaves the modal open and clicks it later.
+  const insightId = pdfViewer.insight?._id || pdfViewer.insight?.id;
+  const permanentUrl = insightId ? insightsService.getPermanentPdfUrl(insightId) : null;
+
   return (
     <AnimatePresence>
       {pdfViewer.open && (
@@ -56,7 +63,7 @@ export const PdfViewerModal = ({ pdfViewer, onClose, onRetry, onCopyLink }: PdfV
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {pdfViewer.url && (
+                {pdfViewer.url && permanentUrl && (
                   <>
                     <button
                       onClick={onCopyLink}
@@ -66,7 +73,7 @@ export const PdfViewerModal = ({ pdfViewer, onClose, onRetry, onCopyLink }: PdfV
                       <LinkIcon className="w-4 h-4" />
                     </button>
                     <a
-                      href={pdfViewer.url}
+                      href={permanentUrl}
                       download
                       target="_blank"
                       rel="noopener noreferrer"
@@ -76,7 +83,7 @@ export const PdfViewerModal = ({ pdfViewer, onClose, onRetry, onCopyLink }: PdfV
                       <Download className="w-4 h-4" />
                     </a>
                     <a
-                      href={pdfViewer.url}
+                      href={permanentUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-500 dark:text-slate-400 hover:text-accent-600 dark:hover:text-accent-400"

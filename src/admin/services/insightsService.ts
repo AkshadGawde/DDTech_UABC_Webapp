@@ -226,6 +226,14 @@ class InsightsService {
     return data.pdfUrl as string;
   }
 
+  // Stable link safe to copy/share/send to clients - it never expires. The
+  // server 302-redirects it to a freshly-signed storage URL on every visit,
+  // so this exact URL keeps working indefinitely even though the URL it
+  // redirects to rotates behind the scenes.
+  getPermanentPdfUrl(id: string): string {
+    return `${API_URL}/pdf-insights/${id}/download`;
+  }
+
   // Create new insight
   async createInsight(data: CreateInsightData): Promise<{ success: boolean; message: string; insight?: Insight }> {
     try {
