@@ -273,7 +273,10 @@ const DocCard = ({ doc, index, tokens, flash, copiedKey, onOpen, onCopy }: DocCa
   const tone = toneFor(item.category || '');
   const description = item.excerpt || '';
   const long = description.length > 120;
-  const pageCopied = copiedKey === `${id}:page`;
+  // The main "Copy link" shares the PDF's permanent public URL (files.uabc.co.in),
+  // which opens the document directly and never expires.
+  const pdfLink = insightsService.getPermanentPdfUrl(item);
+  const linkCopied = copiedKey === `${id}:pdf`;
 
   return (
     <motion.article
@@ -345,16 +348,20 @@ const DocCard = ({ doc, index, tokens, flash, copiedKey, onOpen, onCopy }: DocCa
           </button>
           <button
             type="button"
-            onClick={() => onCopy(pageLinkFor(id), 'Page link copied', `${id}:page`)}
+            onClick={() =>
+              pdfLink
+                ? onCopy(pdfLink, 'PDF link copied', `${id}:pdf`)
+                : onCopy(pageLinkFor(id), 'Page link copied', `${id}:pdf`)
+            }
             aria-label={`Copy link to ${item.title}`}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] font-medium rounded-lg border transition-colors ${
-              pageCopied
+              linkCopied
                 ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
                 : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
             }`}
           >
-            {pageCopied ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
-            <span className="hidden sm:inline">{pageCopied ? 'Copied' : 'Copy link'}</span>
+            {linkCopied ? <Check className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+            <span className="hidden sm:inline">{linkCopied ? 'Copied' : 'Copy link'}</span>
           </button>
           <div className="ml-auto">
             <ShareMenu item={item} onCopy={onCopy} />
