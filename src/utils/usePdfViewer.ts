@@ -25,23 +25,11 @@ export const usePdfViewer = () => {
 
   const closePdfViewer = useCallback(() => setPdfViewer(CLOSED_STATE), []);
 
-  const openPdfViewer = useCallback(async (insight: Insight) => {
+  // pdfUrl is the PDF's permanent public R2 URL, so it opens directly - no
+  // round trip to the API server.
+  const openPdfViewer = useCallback((insight: Insight) => {
     if (!insight.pdfUrl) return;
-    const id = insight._id || insight.id;
-    if (!id) return;
-
-    setPdfViewer({ open: true, loading: true, error: null, url: null, insight });
-
-    try {
-      const url = await insightsService.getPdfViewerUrl(id);
-      setPdfViewer((prev) => ({ ...prev, loading: false, url }));
-    } catch (err: any) {
-      setPdfViewer((prev) => ({
-        ...prev,
-        loading: false,
-        error: err?.message || 'Failed to load PDF.',
-      }));
-    }
+    setPdfViewer({ open: true, loading: false, error: null, url: insight.pdfUrl, insight });
   }, []);
 
   const handleInsightClick = useCallback((insight: Insight) => {
@@ -52,12 +40,10 @@ export const usePdfViewer = () => {
 
   const copyPdfLink = useCallback(async (e: React.MouseEvent, insight: Insight) => {
     e.stopPropagation();
-    const id = insight._id || insight.id;
-    if (!insight.pdfUrl || !id) return;
+    const url = insightsService.getPermanentPdfUrl(insight);
+    if (!url) return;
     try {
-      // Permanent link - safe to send to clients/government agencies, unlike
-      // the short-lived signed URL used for in-page viewing.
-      const url = insightsService.getPermanentPdfUrl(id);
+      // Permanent link - safe to send to clients/government agencies.
       await navigator.clipboard.writeText(url);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 2000);

@@ -1,13 +1,11 @@
 const express = require("express");
-const { body, validationResult } = require("express-validator");
-const Insight = require("../models/Insight");
+const store = require("../lib/insightStore");
 const { authenticateToken, requireEditor } = require("../middleware/auth");
-const PDF_FOLDERS = require("../config/pdfFolders");
 
 const router = express.Router();
 
 /* -------------------------------- */
-/* Helper - calculate read time     */
+/* Helpers                          */
 /* -------------------------------- */
 
 const calculateReadTime = (content) => {
@@ -15,6 +13,59 @@ const calculateReadTime = (content) => {
   const words = content.trim().split(/\s+/).length;
   return Math.max(1, Math.ceil(words / wordsPerMinute));
 };
+
+// Fields an admin may set through the JSON API. Storage fields (pdfPublicId,
+// section, slug, ...) are server-controlled and can't be changed after upload.
+const EDITABLE_FIELDS = [
+  "title",
+  "excerpt",
+  "content",
+  "author",
+  "category",
+  "tags",
+  "featuredImage",
+  "image",
+  "published",
+  "featured",
+  "publishDate",
+  "seoTitle",
+  "seoDescription",
+];
+
+const pickEditable = (source) => {
+  const out = {};
+  for (const field of EDITABLE_FIELDS) {
+    if (source[field] !== undefined) out[field] = source[field];
+  }
+  return out;
+};
+
+const sendError = (res, error, fallbackMessage) => {
+  if (error instanceof store.StoreError) {
+    return res.status(error.status).json({ success: false, message: error.message });
+  }
+  console.error(`❌ ${fallbackMessage}:`, error);
+  res.status(500).json({ success: false, message: fallbackMessage });
+};
+
+const paginate = (items, pageParam, limitParam, maxLimit) => {
+  const page = Math.max(1, parseInt(pageParam || 1));
+  const limit = Math.min(Math.max(1, parseInt(limitParam || 10)), maxLimit);
+  const total = items.length;
+  const pages = Math.ceil(total / limit);
+  return {
+    insights: items.slice((page - 1) * limit, page * limit),
+    pagination: {
+      current: page,
+      pages,
+      total,
+      hasNext: page < pages,
+      hasPrev: page > 1,
+    },
+  };
+};
+
+const byNewest = (a, b) => String(b.createdAt).localeCompare(String(a.createdAt));
 
 /* -------------------------------- */
 /* GET /api/insights/admin/:id       */
@@ -24,11 +75,7 @@ const calculateReadTime = (content) => {
 
 router.get("/admin/:id", authenticateToken, requireEditor, async (req, res) => {
   try {
-    const { id } = req.params;
-
-    console.log("🔍 Fetching admin insight:", id);
-
-    const insight = await Insight.findById(id).lean();
+    const insight = await store.get(req.params.id);
 
     if (!insight) {
       return res.status(404).json({
@@ -37,18 +84,9 @@ router.get("/admin/:id", authenticateToken, requireEditor, async (req, res) => {
       });
     }
 
-    console.log("✅ Found insight:", insight.title);
-
-    res.json({
-      success: true,
-      data: insight,
-    });
+    res.json({ success: true, data: insight });
   } catch (error) {
-    console.error("❌ Get admin insight error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while fetching insight",
-    });
+    sendError(res, error, "Server error while fetching insight");
   }
 });
 
@@ -59,137 +97,64 @@ router.get("/admin/:id", authenticateToken, requireEditor, async (req, res) => {
 
 router.get("/admin", authenticateToken, requireEditor, async (req, res) => {
   try {
-    const page = parseInt(req.query.page || 1);
-    let limit = parseInt(req.query.limit || 10);
-    // Cap the limit to a reasonable maximum (e.g., 1000 for admin bulk loading)
-    limit = Math.min(limit, 1000);
-    const skip = (page - 1) * limit;
     const status = req.query.status || "all";
+    let insights = await store.list();
 
-    // Build query based on status filter
-    let query = {};
     if (status === "published") {
-      query.published = true;
+      insights = insights.filter((i) => i.published);
     } else if (status === "draft") {
-      query.published = false;
+      insights = insights.filter((i) => !i.published);
     }
-    // status === "all" means no filter
 
-    console.log("🔍 Admin insights query:", { page, limit, status, query });
-
-    const insights = await Insight.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    const total = await Insight.countDocuments(query);
-
-    console.log(`✅ Found ${insights.length} insights (${total} total)`);
-
+    insights.sort(byNewest);
     res.json({
       success: true,
-      data: {
-        insights,
-        pagination: {
-          current: page,
-          pages: Math.ceil(total / limit),
-          total,
-          hasNext: page < Math.ceil(total / limit),
-          hasPrev: page > 1,
-        },
-      },
+      data: paginate(insights, req.query.page, req.query.limit, 1000),
     });
   } catch (error) {
-    console.error("❌ Get admin insights error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while fetching insights",
-    });
+    sendError(res, error, "Server error while fetching insights");
   }
 });
 
 /* -------------------------------- */
 /* GET /api/insights                */
+/* Kept for older frontends - the   */
+/* site now reads insights.json     */
+/* straight from R2 instead.        */
 /* -------------------------------- */
 
 router.get("/", async (req, res) => {
   try {
-    const page = parseInt(req.query.page || 1);
-    const limit = parseInt(req.query.limit || 10);
-    const skip = (page - 1) * limit;
-    const category = req.query.category;
-    const search = req.query.search;
-    const sort = req.query.sort || 'newest';
+    const { category, search } = req.query;
+    let insights = (await store.list()).filter((i) => i.published);
 
-    const query = { published: true };
+    insights =
+      req.query.section === "legislation"
+        ? insights.filter((i) => i.section === "legislation")
+        : insights.filter((i) => i.section !== "legislation");
 
-    // Legislation shares the collection but must never leak into Insights
-    // listings; existing documents without a section count as insights.
-    if (req.query.section === "legislation") {
-      query.section = "legislation";
-      // The Legislation page only ever lists PDFs stored in its own R2 folder.
-      query.pdfPublicId = { $regex: `^${PDF_FOLDERS.legislation}/` };
-    } else {
-      query.section = { $ne: "legislation" };
+    if (category && category !== "All") {
+      const wanted = category.toLowerCase();
+      insights = insights.filter((i) => (i.category || "").toLowerCase() === wanted);
     }
 
-    // Add category filter if provided and not 'All'
-    if (category && category !== 'All') {
-      const escapedCategory = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      query.category = { $regex: `^${escapedCategory}$`, $options: 'i' };
-    }
-
-    // Add search filter if provided
     if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { excerpt: { $regex: search, $options: 'i' } },
-        { author: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
-      ];
+      const needle = search.toLowerCase();
+      insights = insights.filter((i) =>
+        [i.title, i.excerpt, i.author, ...(i.tags || [])].some((v) =>
+          (v || "").toLowerCase().includes(needle),
+        ),
+      );
     }
 
-    // Determine sort order
-    let sortObj = {};
-    if (sort === 'oldest') {
-      sortObj = { createdAt: 1 };
-    } else if (sort === 'updated') {
-      sortObj = { updatedAt: -1 };
-    } else if (sort === 'popular') {
-      sortObj = { views: -1 };
-    } else {
-      sortObj = { createdAt: -1 }; // 'newest' is default
-    }
+    insights.sort(byNewest);
+    if (req.query.sort === "oldest") insights.reverse();
 
-    const insights = await Insight.find(query)
-      .sort(sortObj)
-      .skip(skip)
-      .limit(limit)
-      .select("-content")
-      .lean();
-
-    const total = await Insight.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: {
-        insights,
-        pagination: {
-          current: page,
-          pages: Math.ceil(total / limit),
-          total,
-          hasNext: page < Math.ceil(total / limit),
-          hasPrev: page > 1,
-        },
-      },
-    });
+    const result = paginate(insights, req.query.page, req.query.limit, 1000);
+    result.insights = result.insights.map(({ content, ...rest }) => rest);
+    res.json({ success: true, data: result });
   } catch (error) {
-    console.error("Get insights error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while fetching insights",
-    });
+    sendError(res, error, "Server error while fetching insights");
   }
 });
 
@@ -199,28 +164,18 @@ router.get("/", async (req, res) => {
 
 router.get("/:id", async (req, res) => {
   try {
-    const insight = await Insight.findOne({
-      _id: req.params.id,
-      published: true,
-    }).lean();
+    const insight = await store.get(req.params.id);
 
-    if (!insight) {
+    if (!insight || !insight.published) {
       return res.status(404).json({
         success: false,
         message: "Insight not found",
       });
     }
 
-    res.json({
-      success: true,
-      data: insight,
-    });
+    res.json({ success: true, data: insight });
   } catch (error) {
-    console.error("Get insight error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    sendError(res, error, "Server error");
   }
 });
 
@@ -230,24 +185,20 @@ router.get("/:id", async (req, res) => {
 
 router.post("/", authenticateToken, requireEditor, async (req, res) => {
   try {
-    const insightData = {
-      ...req.body,
-      readTime: calculateReadTime(req.body.content || ""),
-    };
+    const data = pickEditable(req.body);
 
-    const insight = new Insight(insightData);
-    await insight.save();
+    if (!data.title || !String(data.title).trim()) {
+      return res.status(400).json({ success: false, message: "Title is required" });
+    }
 
-    res.status(201).json({
-      success: true,
-      data: insight,
+    const insight = await store.create({
+      ...data,
+      readTime: calculateReadTime(data.content || ""),
     });
+
+    res.status(201).json({ success: true, data: insight });
   } catch (error) {
-    console.error("Create insight error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error creating insight",
-    });
+    sendError(res, error, "Error creating insight");
   }
 });
 
@@ -257,11 +208,7 @@ router.post("/", authenticateToken, requireEditor, async (req, res) => {
 
 router.put("/:id", authenticateToken, requireEditor, async (req, res) => {
   try {
-    const update = { ...req.body };
-    // Only the server decides whether an excerpt counts as hand-written, and a
-    // document's section (which fixes its R2 folder) can't be changed after upload.
-    delete update.excerptCustom;
-    delete update.section;
+    const update = pickEditable(req.body);
 
     if (typeof update.excerpt === "string") {
       const excerpt = update.excerpt.trim();
@@ -280,20 +227,16 @@ router.put("/:id", authenticateToken, requireEditor, async (req, res) => {
       }
     }
 
-    const insight = await Insight.findByIdAndUpdate(req.params.id, update, {
-      new: true,
-    });
+    if (typeof update.content === "string") {
+      update.readTime = calculateReadTime(update.content);
+    }
 
-    res.json({
-      success: true,
-      data: insight,
-    });
+    const { insight, removedKeys } = await store.update(req.params.id, update);
+    await store.deletePublicObjects(removedKeys);
+
+    res.json({ success: true, data: insight });
   } catch (error) {
-    console.error("Update insight error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Update failed",
-    });
+    sendError(res, error, "Update failed");
   }
 });
 
@@ -303,121 +246,59 @@ router.put("/:id", authenticateToken, requireEditor, async (req, res) => {
 
 router.delete("/:id", authenticateToken, requireEditor, async (req, res) => {
   try {
-    await Insight.findByIdAndDelete(req.params.id);
+    const insight = await store.remove(req.params.id);
+    await store.deletePublicObjects([insight.pdfPublicId, insight.featuredImageKey]);
 
     res.json({
       success: true,
       message: "Insight deleted",
     });
   } catch (error) {
-    console.error("Delete insight error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Delete failed",
-    });
+    sendError(res, error, "Delete failed");
   }
 });
 
 /* -------------------------------- */
 /* PATCH /api/insights/:id/publish  */
-/* Toggle published status          */
+/* PATCH /api/insights/:id/featured */
+/* Toggle a boolean flag            */
 /* -------------------------------- */
+
+const toggleFlag = (flag, onLabel, offLabel) => async (req, res) => {
+  try {
+    const value = req.body[flag];
+
+    if (typeof value !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: `${flag[0].toUpperCase()}${flag.slice(1)} must be a boolean`,
+      });
+    }
+
+    const { insight } = await store.update(req.params.id, { [flag]: value });
+
+    res.json({
+      success: true,
+      message: `Insight ${value ? onLabel : offLabel} successfully`,
+      data: insight,
+    });
+  } catch (error) {
+    sendError(res, error, `Failed to toggle ${flag} status`);
+  }
+};
 
 router.patch(
   "/:id/publish",
   authenticateToken,
   requireEditor,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { published } = req.body;
-
-      if (typeof published !== "boolean") {
-        return res.status(400).json({
-          success: false,
-          message: "Published must be a boolean",
-        });
-      }
-
-      console.log(`📝 Toggling published status for ${id} to ${published}`);
-
-      const insight = await Insight.findByIdAndUpdate(
-        id,
-        { published },
-        { new: true },
-      );
-
-      if (!insight) {
-        return res.status(404).json({
-          success: false,
-          message: "Insight not found",
-        });
-      }
-
-      res.json({
-        success: true,
-        message: `Insight ${published ? "published" : "unpublished"} successfully`,
-        data: insight,
-      });
-    } catch (error) {
-      console.error("Toggle publish error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to toggle publish status",
-      });
-    }
-  },
+  toggleFlag("published", "published", "unpublished"),
 );
-
-/* -------------------------------- */
-/* PATCH /api/insights/:id/featured */
-/* Toggle featured status           */
-/* -------------------------------- */
 
 router.patch(
   "/:id/featured",
   authenticateToken,
   requireEditor,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { featured } = req.body;
-
-      if (typeof featured !== "boolean") {
-        return res.status(400).json({
-          success: false,
-          message: "Featured must be a boolean",
-        });
-      }
-
-      console.log(`⭐ Toggling featured status for ${id} to ${featured}`);
-
-      const insight = await Insight.findByIdAndUpdate(
-        id,
-        { featured },
-        { new: true },
-      );
-
-      if (!insight) {
-        return res.status(404).json({
-          success: false,
-          message: "Insight not found",
-        });
-      }
-
-      res.json({
-        success: true,
-        message: `Insight ${featured ? "featured" : "unfeatured"} successfully`,
-        data: insight,
-      });
-    } catch (error) {
-      console.error("Toggle featured error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to toggle featured status",
-      });
-    }
-  },
+  toggleFlag("featured", "featured", "unfeatured"),
 );
 
 module.exports = router;

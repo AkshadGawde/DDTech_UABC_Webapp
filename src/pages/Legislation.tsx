@@ -215,7 +215,7 @@ const ShareMenu = ({ item, onCopy }: ShareMenuProps) => {
             <button
               role="menuitem"
               className={rowClass}
-              onClick={() => { onCopy(insightsService.getPermanentPdfUrl(id), 'PDF link copied', `${id}:pdf`); setOpen(false); }}
+              onClick={() => { onCopy(insightsService.getPermanentPdfUrl(item) || '', 'PDF link copied', `${id}:pdf`); setOpen(false); }}
             >
               <Download className="w-4 h-4 text-accent-600" /> Copy direct PDF link
             </button>

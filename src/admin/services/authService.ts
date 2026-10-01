@@ -164,54 +164,6 @@ class AuthService {
     localStorage.removeItem(this.STORAGE_KEY);
   }
 
-  // Create admin user (for setup)
-  async createAdmin(userData: {
-    username: string;
-    email: string;
-    password: string;
-    firstName?: string;
-    lastName?: string;
-  }): Promise<{ success: boolean; message: string; user?: User }> {
-    try {
-      const response = await fetch(`${API_URL}/auth/create-admin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData)
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        const authState = {
-          user: data.user,
-          token: data.token,
-          timestamp: Date.now()
-        };
-        
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(authState));
-        
-        return {
-          success: true,
-          message: data.message,
-          user: data.user
-        };
-      }
-      
-      return {
-        success: false,
-        message: data.message || 'Admin creation failed'
-      };
-    } catch (error) {
-      console.error('Create admin error:', error);
-      return {
-        success: false,
-        message: 'Network error. Please check your connection.'
-      };
-    }
-  }
-
   // Make authenticated API request
   async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
     const token = this.getToken();

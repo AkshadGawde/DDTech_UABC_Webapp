@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, Check, X, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { authService } from '../services/authService';
-import { insightsService, type InsightSection } from '../services/insightsService';
+import type { InsightSection } from '../services/insightsService';
 import { SECTION_CONFIG } from '../sections';
 
 interface PDFEntry {
@@ -78,7 +78,6 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
   const [customCategory, setCustomCategory] = useState('');
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [blockedMsg, setBlockedMsg] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -126,12 +125,6 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
     const category = showCustomCategory && customCategory.trim()
       ? customCategory.trim()
       : sharedCategory;
-
-    setBlockedMsg(null);
-    if (section === 'legislation' && !(await insightsService.isLegislationSupported())) {
-      setBlockedMsg('The server is running an older version that does not support Legislation yet, so this upload was blocked to avoid publishing it under Insights. Deploy the latest backend and try again.');
-      return;
-    }
 
     setUploading(true);
     setProgress(0);
@@ -274,12 +267,6 @@ const BulkPDFUploader: React.FC<BulkPDFUploaderProps> = ({
         </p>
         <p className="text-xs text-gray-400 mt-1">Multiple files supported · Max 10MB each</p>
       </div>
-
-      {blockedMsg && (
-        <div className="p-3 rounded-lg border border-red-300 bg-red-50 text-sm text-red-800">
-          {blockedMsg}
-        </div>
-      )}
 
       {/* PDF list */}
       {entries.length > 0 && (

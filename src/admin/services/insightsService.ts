@@ -1,7 +1,8 @@
 import { authService } from './authService';
-import { getApiUrl } from '../../config/apiConfig';
+import { getApiUrl, getFilesUrl } from '../../config/apiConfig';
 
 const API_URL = getApiUrl();
+const MANIFEST_URL = `${getFilesUrl()}/insights.json`;
 
 export type InsightSection = 'insight' | 'legislation';
 
@@ -72,101 +73,88 @@ export type CreateInsightData = {
   seoDescription?: string;
 };
 
+const emptyResponse = (): InsightsResponse => ({
+  insights: [],
+  pagination: { current: 1, pages: 0, total: 0, hasNext: false, hasPrev: false },
+});
+
+const byCreatedDesc = (a: Insight, b: Insight) =>
+  String(b.createdAt).localeCompare(String(a.createdAt));
+
 class InsightsService {
-  // Get all insights (public)
+  // insights.json is fetched once per page load and shared by every caller
+  // (navbar, footer, hero, insights pages) instead of each hitting the network.
+  private manifestPromise: Promise<Insight[]> | null = null;
+
+  // All published insights + legislation, read straight from R2 - no API server
+  // involved. Throws on failure; a failed fetch is retried on the next call.
+  private loadPublishedInsights(): Promise<Insight[]> {
+    if (!this.manifestPromise) {
+      this.manifestPromise = (async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        try {
+          const response = await fetch(MANIFEST_URL, { signal: controller.signal });
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const data = await response.json();
+          return (data.insights || []) as Insight[];
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      })();
+      this.manifestPromise.catch(() => {
+        this.manifestPromise = null;
+      });
+    }
+    return this.manifestPromise;
+  }
+
+  // Get all insights (public). Filters/paginates insights.json in the browser
+  // with the same rules the API used to apply.
   async getPublicInsights(filters: InsightFilters = {}): Promise<InsightsResponse> {
     try {
-      const params = new URLSearchParams();
-      
-      if (filters.page) params.append('page', filters.page.toString());
-      if (filters.limit) params.append('limit', filters.limit.toString());
-      if (filters.category) params.append('category', filters.category);
-      if (filters.search) params.append('search', filters.search);
-      if (filters.section) params.append('section', filters.section);
-      if (filters.sort) params.append('sort', filters.sort);
-      
-      const url = `${API_URL}/insights?${params}`;
-      console.log('Fetching from:', url);
-      
-      // Add timeout to fetch request
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-      
-      const response = await fetch(url, { 
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const all = await this.loadPublishedInsights();
+      let insights = all.filter((i) =>
+        filters.section === 'legislation' ? i.section === 'legislation' : i.section !== 'legislation'
+      );
+
+      if (filters.category && filters.category !== 'All') {
+        const wanted = filters.category.toLowerCase();
+        insights = insights.filter((i) => (i.category || '').toLowerCase() === wanted);
       }
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to fetch insights');
+
+      if (filters.search) {
+        const needle = filters.search.toLowerCase();
+        insights = insights.filter((i) =>
+          [i.title, i.excerpt, i.author, ...(i.tags || [])].some((v) =>
+            (v || '').toLowerCase().includes(needle)
+          )
+        );
       }
-      
-      return data.data;
-    } catch (error: any) {
-      console.error('Error fetching public insights:', error);
-      
-      // Check if error is due to abort (timeout)
-      if (error.name === 'AbortError') {
-        console.error('Request timeout - API took too long to respond');
-      }
-      
+
+      insights = [...insights].sort(byCreatedDesc);
+      if (filters.sort === 'oldest') insights.reverse();
+
+      const page = Math.max(1, filters.page || 1);
+      const limit = Math.max(1, filters.limit || 10);
+      const total = insights.length;
+      const pages = Math.ceil(total / limit);
+
       return {
-        insights: [],
-        pagination: {
-          current: 1,
-          pages: 0,
-          total: 0,
-          hasNext: false,
-          hasPrev: false
-        }
+        insights: insights.slice((page - 1) * limit, page * limit),
+        pagination: { current: page, pages, total, hasNext: page < pages, hasPrev: page > 1 },
       };
+    } catch (error) {
+      console.error('Error fetching public insights:', error);
+      return emptyResponse();
     }
   }
 
   // Published legislation PDFs (public). Unlike getPublicInsights this throws on
   // failure so the page can show an error instead of a misleading empty list.
   async getPublicLegislation(): Promise<Insight[]> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    try {
-      const params = new URLSearchParams({ section: 'legislation', limit: '1000', sort: 'newest' });
-      const response = await fetch(`${API_URL}/insights?${params}`, { signal: controller.signal });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || 'Failed to fetch legislation');
-      // Also require section === 'legislation': a backend that predates sections
-      // ignores the filter and would otherwise return every insight.
-      return (data.data?.insights || []).filter(
-        (i: Insight) => i.published && i.section === 'legislation'
-      );
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  // False when the API predates sections (it returns non-legislation documents for a
-  // legislation query). Used to block legislation uploads that would otherwise be
-  // filed under Insights on the live site.
-  async isLegislationSupported(): Promise<boolean> {
-    try {
-      const params = new URLSearchParams({ section: 'legislation', limit: '1' });
-      const response = await fetch(`${API_URL}/insights?${params}`);
-      const data = await response.json();
-      const first = data?.data?.insights?.[0];
-      return !first || first.section === 'legislation';
-    } catch {
-      return true; // can't tell - let the upload itself report any network problem
-    }
+    const all = await this.loadPublishedInsights();
+    return all.filter((i) => i.published && i.section === 'legislation');
   }
 
   // Get all insights (admin)
@@ -256,23 +244,10 @@ class InsightsService {
     }
   }
 
-  async getPdfViewerUrl(id: string): Promise<string> {
-    const response = await fetch(`${API_URL}/pdf-insights/${id}/pdf`);
-    const data = await response.json();
-
-    if (!response.ok || !data.success || !data.pdfUrl) {
-      throw new Error(data.message || 'Failed to fetch PDF URL');
-    }
-
-    return data.pdfUrl as string;
-  }
-
-  // Stable link safe to copy/share/send to clients - it never expires. The
-  // server 302-redirects it to a freshly-signed storage URL on every visit,
-  // so this exact URL keeps working indefinitely even though the URL it
-  // redirects to rotates behind the scenes.
-  getPermanentPdfUrl(id: string): string {
-    return `${API_URL}/pdf-insights/${id}/download`;
+  // Permanent public R2 link - safe to copy/share/send to clients. It never
+  // expires and doesn't depend on the API server being awake.
+  getPermanentPdfUrl(insight: Insight): string | null {
+    return insight.pdfUrl || null;
   }
 
   // Create new insight

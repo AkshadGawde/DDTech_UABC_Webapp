@@ -5,7 +5,6 @@ import { useAuth } from '../hooks/useAuth';
 import { insightsService, Insight, type InsightSection } from '../services/insightsService';
 import { SECTION_CONFIG } from '../sections';
 import { authService } from '../services/authService';
-import { AdminSetup } from '../components/AdminSetup';
 import PDFInsightUploader from '../components/PDFInsightUploader';
 import BulkPDFUploader from '../components/BulkPDFUploader';
 import { getApiUrl } from '../../config/apiConfig';
@@ -23,7 +22,6 @@ export const AdminDashboard = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { user, logout } = useAuth();
   const [authError, setAuthError] = useState<string | null>(null);
-  const [showSetup, setShowSetup] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelecting, setIsSelecting] = useState(false);
@@ -242,15 +240,8 @@ export const AdminDashboard = () => {
   const handleViewPDF = async (id: string) => {
     // Find the insight with the matching ID
     const insight = insights.find(i => (i._id || i.id) === id);
-    if (insight && (insight.pdfUrl || insight.pdfFilename)) {
-      try {
-        const pdfUrl = await insightsService.getPdfViewerUrl(id);
-        window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'PDF URL not found';
-        setErrorMessage(message);
-        setTimeout(() => setErrorMessage(null), 3000);
-      }
+    if (insight?.pdfUrl) {
+      window.open(insight.pdfUrl, '_blank', 'noopener,noreferrer');
     } else {
       setErrorMessage('PDF not found');
       setTimeout(() => setErrorMessage(null), 3000);
@@ -295,16 +286,6 @@ export const AdminDashboard = () => {
     drafts: sectionInsights.filter(i => !i.published).length,
     featured: sectionInsights.filter(i => i.featured).length
   };
-
-  // Inline setup flow if needed
-  if (showSetup) {
-    return (
-      <AdminSetup onSetupComplete={() => {
-        setShowSetup(false);
-        loadInsights();
-      }} />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
@@ -474,12 +455,6 @@ export const AdminDashboard = () => {
               You are logged in as <span className="font-semibold">{user?.role}</span>. To access the admin insights, you need an account with the <span className="font-semibold">admin</span> or <span className="font-semibold">editor</span> role.
             </p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowSetup(true)}
-                className="px-4 py-2 bg-accent-600 text-white rounded-md hover:bg-accent-700 transition-colors"
-              >
-                Create Admin User
-              </button>
               <button
                 onClick={logout}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"

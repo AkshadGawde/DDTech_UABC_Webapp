@@ -1,0 +1,11 @@
+digraph States {
+  rankdir=LR;
+  node [style=filled, shape=circle, fontsize=10];
+  S0 [label="S0 Initial\nAvail=(3, 3, 2)", fillcolor=green];
+  R1 [label="R1 SAFE\nAvail=(2, 3, 0)", fillcolor=green];
+  S0 -> R1 [label="P1 requests (1, 0, 2)\n[GRANTED]"];
+  R2 [label="R2 WAIT", fillcolor=yellow];
+  R1 -> R2 [label="P4 requests (3, 3, 0)\n[WAIT]", style=dashed];
+  R3 [label="R3 UNSAFE\nAvail=(2, 1, 0)", fillcolor=red];
+  R1 -> R3 [label="P0 requests (0, 2, 0)\n[DENIED]", style=dashed];
+}

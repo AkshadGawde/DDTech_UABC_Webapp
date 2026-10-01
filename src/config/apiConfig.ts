@@ -21,6 +21,12 @@ export const getApiUrl = (): string => {
   return apiUrl;
 };
 
+// Public Cloudflare R2 domain serving the PDFs, poster images and insights.json.
+// The public site reads straight from here, so it works even while the API
+// server (only needed for the admin panel) is asleep.
+export const getFilesUrl = (): string =>
+  (import.meta.env.VITE_FILES_URL || 'https://files.uabc.co.in').replace(/\/+$/, '');
+
 export const API_CONFIG = {
   baseUrl: getApiUrl(),
   timeout: 30000,

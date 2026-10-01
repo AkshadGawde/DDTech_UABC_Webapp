@@ -1,5 +1,4 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
@@ -10,6 +9,7 @@ const authRoutes = require("./routes/auth");
 const insightsRoutes = require("./routes/insights");
 const pdfInsightRoutes = require("./routes/pdfInsights");
 const applicationRoutes = require("./routes/applications");
+const insightStore = require("./lib/insightStore");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -80,26 +80,17 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 console.log("🔍 Environment check:");
 console.log("- NODE_ENV:", process.env.NODE_ENV);
 console.log("- PORT:", process.env.PORT);
-console.log("- MongoDB URI exists:", !!process.env.MONGODB_URI);
 console.log("- JWT Secret exists:", !!process.env.JWT_SECRET);
+console.log("- Admin login configured:", !!(process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD_HASH));
+console.log("- R2 public URL:", process.env.R2_PUBLIC_URL || "(not set)");
 
-// MongoDB connection
-if (!process.env.MONGODB_URI) {
-  console.error("❌ MONGODB_URI environment variable is not set");
-  process.exit(1);
-}
-
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log("✅ Connected to MongoDB Atlas");
-    console.log("📊 Database:", mongoose.connection.name);
-  })
-  .catch((error) => {
-    console.error("❌ MongoDB connection error:", error);
-    console.error("🔧 Check your MongoDB URI and network connection");
-    process.exit(1);
-  });
+// Insights are stored as JSON in R2 (see lib/insightStore.js), so there is no
+// database to connect to. Re-publish the public insights.json on boot so a
+// manifest write that failed earlier heals itself.
+insightStore
+  .rebuildManifest()
+  .then(() => console.log("✅ Public insights.json is up to date"))
+  .catch((error) => console.error("⚠️  Could not rebuild insights.json:", error.message));
 
 // Root endpoint
 app.get("/", (req, res) => {

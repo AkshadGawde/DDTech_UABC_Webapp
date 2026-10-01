@@ -9,7 +9,8 @@ const {
   GetObjectCommand,
 } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-const { s3Client, R2_BUCKET } = require("../config/r2");
+// Resumes are personal data, so they live in the private bucket.
+const { s3Client, R2_PRIVATE_BUCKET: R2_BUCKET } = require("../config/r2");
 const FOLDERS = require("../config/pdfFolders");
 
 const router = express.Router();

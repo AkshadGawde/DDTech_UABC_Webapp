@@ -2,15 +2,9 @@ const express = require("express");
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
 const { body, validationResult } = require("express-validator");
-const Insight = require("../models/Insight");
+const crypto = require("crypto");
+const store = require("../lib/insightStore");
 const { authenticateToken, requireEditor } = require("../middleware/auth");
-const { s3Client, R2_BUCKET } = require("../config/r2");
-const {
-  PutObjectCommand,
-  DeleteObjectCommand,
-  GetObjectCommand,
-} = require("@aws-sdk/client-s3");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
 const router = express.Router();
 
@@ -261,19 +255,14 @@ const R2_FOLDERS = require("../config/pdfFolders");
 const buildPdfObjectKey = (slug, section = "insight") =>
   `${R2_FOLDERS[section] || R2_FOLDERS.insight}/${slug}.pdf`;
 
-// R2 buckets are kept private; every view/download gets a freshly-signed URL
-// rather than a permanently public one. 1 hour is comfortably long enough for
-// someone to view or download a PDF in one sitting.
-const PDF_URL_EXPIRY_SECONDS = 60 * 60;
-
-const getSignedPdfUrl = (objectKey) => {
-  const command = new GetObjectCommand({
-    Bucket: R2_BUCKET,
-    Key: objectKey,
-    ResponseContentType: "application/pdf",
-    ResponseContentDisposition: "inline",
-  });
-  return getSignedUrl(s3Client, command, { expiresIn: PDF_URL_EXPIRY_SECONDS });
+// Uploaded poster images live next to the PDFs in the public bucket.
+const IMAGE_FOLDER = "insight-images";
+const IMAGE_EXTENSIONS = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/avif": "avif",
 };
 
 // Helper function to extract author from PDF text
@@ -451,80 +440,72 @@ router.post(
       const pdfSlug = slugify(`${title}-${dateForSlug}`);
       console.log("  - PDF Slug/Filename:", pdfSlug);
 
-      // Upload to R2 with deterministic naming.
+      if (await store.slugExists(pdfSlug)) {
+        return res.status(400).json({
+          success: false,
+          message: "An insight with this title and date already exists. Try a different publish date or override the title.",
+        });
+      }
+
+      // Upload to R2 with deterministic naming. The public URL built from this
+      // key is permanent, so it is what the site shows and shares.
       const pdfPublicId = buildPdfObjectKey(pdfSlug, section);
       try {
-        await s3Client.send(
-          new PutObjectCommand({
-            Bucket: R2_BUCKET,
-            Key: pdfPublicId,
-            Body: pdfFile.buffer,
-            ContentType: "application/pdf",
-          }),
-        );
+        await store.putPublicObject(pdfPublicId, pdfFile.buffer, "application/pdf");
       } catch (uploadError) {
         console.error("❌ R2 upload error:", uploadError.message);
         throw new Error(`Failed to upload PDF to R2: ${uploadError.message}`);
       }
-
-      // Stored only as the initial value shown in the admin response - the
-      // site always re-derives a fresh signed URL from pdfPublicId on view,
-      // since signed URLs expire (see GET /:id/pdf below).
-      const pdfUrl = await getSignedPdfUrl(pdfPublicId);
-
       console.log("🔗 PDF stored in R2 at:", pdfPublicId);
-      console.log("✅ PDF will download as:", `${pdfSlug}.pdf`);
 
-      // Handle image - either uploaded file or URL
-      let finalImageUrl;
+      // Handle image - either uploaded file (stored in R2) or URL
+      let featuredImageKey;
+      let finalImageUrl = store.DEFAULT_IMAGE;
       if (imageFile) {
-        // Convert uploaded image to base64 data URL
-        const imageBase64 = imageFile.buffer.toString("base64");
-        finalImageUrl = `data:${imageFile.mimetype};base64,${imageBase64}`;
-        console.log("🖼️  Using uploaded image");
+        const ext = IMAGE_EXTENSIONS[imageFile.mimetype] || "img";
+        featuredImageKey = `${IMAGE_FOLDER}/${pdfSlug}-${crypto.randomBytes(4).toString("hex")}.${ext}`;
+        await store.putPublicObject(featuredImageKey, imageFile.buffer, imageFile.mimetype);
+        console.log("🖼️  Uploaded image to R2 at:", featuredImageKey);
       } else if (featuredImage) {
         finalImageUrl = featuredImage;
         console.log("🖼️  Using image URL:", featuredImage);
-      } else {
-        finalImageUrl =
-          "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=800&q=80";
-        console.log("🖼️  Using default image");
       }
 
-      // Create insight document
-      const insightData = {
-        title,
-        slug: pdfSlug,
-        section,
-        excerpt,
-        excerptCustom: Boolean(providedDescription),
-        author: author || "Unknown Author",
-        category: category || "General",
-        pdfUrl: pdfUrl,
-        pdfPublicId,
-        pdfOriginalFilename: pdfFile.originalname,
-        featuredImage: finalImageUrl,
-        publishDate: publishDate ? new Date(publishDate) : new Date(),
-        published: true,
-      };
-
-      console.log("💾 Saving to database...");
-      const insight = new Insight(insightData);
-      await insight.save();
+      let insight;
+      try {
+        insight = await store.create({
+          title,
+          slug: pdfSlug,
+          section,
+          excerpt,
+          excerptCustom: Boolean(providedDescription),
+          author: author || "Unknown Author",
+          category: category || "General",
+          pdfPublicId,
+          pdfOriginalFilename: pdfFile.originalname,
+          ...(featuredImageKey ? { featuredImageKey } : { featuredImage: finalImageUrl }),
+          publishDate: publishDate ? new Date(publishDate) : new Date(),
+          published: true,
+        });
+      } catch (saveError) {
+        // Don't leave files behind that no insight points to.
+        await store.deletePublicObjects([pdfPublicId, featuredImageKey]);
+        throw saveError;
+      }
       console.log("✅ Insight saved successfully:", insight._id);
 
       res.status(201).json({
         success: true,
         message: "PDF insight created successfully",
-        data: insight.toObject(),
+        data: insight,
       });
     } catch (error) {
       console.error("❌ Upload insight error:", error);
 
-      if (error.code === 11000) {
-        return res.status(400).json({
+      if (error instanceof store.StoreError) {
+        return res.status(error.status).json({
           success: false,
-          message: "An insight with this title and date already exists. Try a different publish date or override the title.",
+          message: error.message,
         });
       }
 
@@ -551,59 +532,16 @@ router.post(
 );
 
 // @route   DELETE /api/pdf-insights/:id
-// @desc    Delete a PDF insight (removes from MongoDB and R2)
+// @desc    Delete a PDF insight (removes it from the insights DB and R2)
 // @access  Private (Editor+)
 router.delete("/:id", authenticateToken, requireEditor, async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log("🗑️  Delete PDF Insight Request");
-    console.log("- Insight ID:", id);
-    console.log("- User:", req.user?.username, "Role:", req.user?.role);
+    console.log("🗑️  Delete PDF Insight Request:", id);
 
-    // Validate ID format
-    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid insight ID format",
-      });
-    }
-
-    // Find the insight first to get the R2 object key
-    const insight = await Insight.findById(id);
-
-    if (!insight) {
-      console.log("❌ Insight not found:", id);
-      return res.status(404).json({
-        success: false,
-        message: "PDF insight not found",
-      });
-    }
-
-    // Delete from R2 if PDF metadata exists
-    if (insight.pdfPublicId) {
-      try {
-        console.log("📤 Deleting from R2:", insight.pdfPublicId);
-
-        await s3Client.send(
-          new DeleteObjectCommand({
-            Bucket: R2_BUCKET,
-            Key: insight.pdfPublicId,
-          }),
-        );
-
-        console.log("✅ Deleted from R2:", insight.pdfPublicId);
-      } catch (r2Error) {
-        console.error("⚠️  R2 deletion warning:", r2Error.message);
-        // Don't fail the entire operation if R2 deletion fails
-        // Continue with MongoDB deletion
-      }
-    }
-
-    // Delete from MongoDB
-    await Insight.findByIdAndDelete(id);
-
-    console.log("✅ Insight deleted from MongoDB:", id);
+    const insight = await store.remove(id);
+    await store.deletePublicObjects([insight.pdfPublicId, insight.featuredImageKey]);
 
     res.json({
       success: true,
@@ -611,6 +549,12 @@ router.delete("/:id", authenticateToken, requireEditor, async (req, res) => {
       data: { id: insight._id },
     });
   } catch (error) {
+    if (error instanceof store.StoreError) {
+      return res.status(error.status).json({
+        success: false,
+        message: error.status === 404 ? "PDF insight not found" : error.message,
+      });
+    }
     console.error("❌ Delete insight error:", error);
     res.status(500).json({
       success: false,
@@ -619,44 +563,27 @@ router.delete("/:id", authenticateToken, requireEditor, async (req, res) => {
   }
 });
 
+// Public PDF URL for a published insight, or null.
+const findPublishedPdfUrl = async (id) => {
+  const insight = await store.get(id);
+  return insight && insight.published ? insight.pdfUrl || null : null;
+};
+
 // @route   GET /api/pdf-insights/:id/pdf
-// @desc    Get clean PDF URL for viewing in browser
+// @desc    Legacy: the site now uses the public pdfUrl from insights.json
 // @access  Public (for published insights)
 router.get("/:id/pdf", async (req, res) => {
   try {
-    const { id } = req.params;
+    const pdfUrl = await findPublishedPdfUrl(req.params.id);
 
-    const insight = await Insight.findById(id).select(
-      "pdfUrl pdfPublicId published title",
-    );
-
-    if (!insight || !insight.published) {
+    if (!pdfUrl) {
       return res.status(404).json({
         success: false,
         message: "PDF not found",
       });
     }
 
-    if (!insight.pdfPublicId && !insight.pdfUrl) {
-      return res.status(404).json({
-        success: false,
-        message: "PDF URL not found for this insight",
-      });
-    }
-
-    // Always mint a fresh signed URL from the stored R2 key rather than trust
-    // insight.pdfUrl, since signed URLs expire (see PDF_URL_EXPIRY_SECONDS).
-    const pdfUrl = insight.pdfPublicId
-      ? await getSignedPdfUrl(insight.pdfPublicId)
-      : insight.pdfUrl;
-
-    console.log("📄 Serving inline PDF URL:", pdfUrl);
-
-    res.json({
-      success: true,
-      pdfUrl,
-      title: insight.title,
-    });
+    res.json({ success: true, pdfUrl });
   } catch (error) {
     console.error("PDF serve error:", error);
     res.status(500).json({
@@ -667,37 +594,18 @@ router.get("/:id/pdf", async (req, res) => {
 });
 
 // @route   GET /api/pdf-insights/:id/download
-// @desc    Permanent, never-expiring link to a PDF - safe to send to clients
-//          and government agencies. It never returns the signed URL itself;
-//          it 302-redirects to a freshly-signed one on every request, so the
-//          link people save/share stays valid forever even though the actual
-//          R2 URL underneath it rotates and expires.
+// @desc    Legacy share link (sent out before PDFs had public URLs). Keeps old
+//          links working by redirecting to the PDF's permanent public URL.
 // @access  Public (for published insights)
 router.get("/:id/download", async (req, res) => {
   try {
-    const { id } = req.params;
+    const pdfUrl = await findPublishedPdfUrl(req.params.id);
 
-    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).send("Invalid link");
-    }
-
-    const insight = await Insight.findById(id).select(
-      "pdfUrl pdfPublicId published title slug",
-    );
-
-    if (!insight || !insight.published) {
+    if (!pdfUrl) {
       return res.status(404).send("PDF not found");
     }
 
-    if (!insight.pdfPublicId && !insight.pdfUrl) {
-      return res.status(404).send("PDF not found");
-    }
-
-    const pdfUrl = insight.pdfPublicId
-      ? await getSignedPdfUrl(insight.pdfPublicId)
-      : insight.pdfUrl;
-
-    res.redirect(302, pdfUrl);
+    res.redirect(301, pdfUrl);
   } catch (error) {
     console.error("PDF download redirect error:", error);
     res.status(500).send("Server error while serving PDF");

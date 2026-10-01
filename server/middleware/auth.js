@@ -1,42 +1,44 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
 
-const authenticateToken = async (req, res, next) => {
+// There is a single admin account, configured with ADMIN_USERNAME and
+// ADMIN_PASSWORD_HASH (see scripts/hashPassword.js) - no user database.
+const getAdminUser = () => {
+  const username = (process.env.ADMIN_USERNAME || "").trim().toLowerCase();
+  return {
+    _id: username,
+    id: username,
+    username,
+    role: "admin",
+    fullName: username,
+  };
+};
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: "Access token required",
+    });
+  }
+
   try {
-    const authHeader = req.headers["authorization"];
-    const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "Access token required",
-      });
-    }
-
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const admin = getAdminUser();
 
-    // Get user from database
-    const user = await User.findById(decoded.userId).select("-password");
-
-    if (!user || !user.isActive) {
+    // Tokens issued to a previous admin username stop working once it changes.
+    if (!admin.username || decoded.username !== admin.username) {
       return res.status(401).json({
         success: false,
         message: "Invalid or expired token",
       });
     }
 
-    // Attach user to request object
-    req.user = user;
+    req.user = admin;
     next();
   } catch (error) {
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid token",
-      });
-    }
-
     if (error.name === "TokenExpiredError") {
       return res.status(401).json({
         success: false,
@@ -44,10 +46,9 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    console.error("Auth middleware error:", error);
-    res.status(500).json({
+    return res.status(401).json({
       success: false,
-      message: "Authentication error",
+      message: "Invalid token",
     });
   }
 };
@@ -80,6 +81,7 @@ const requireAdmin = authorizeRoles("admin");
 const requireEditor = authorizeRoles("admin", "editor", "author");
 
 module.exports = {
+  getAdminUser,
   authenticateToken,
   authorizeRoles,
   requireAdmin,

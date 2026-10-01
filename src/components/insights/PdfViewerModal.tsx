@@ -12,11 +12,7 @@ interface PdfViewerModalProps {
 }
 
 export const PdfViewerModal = ({ pdfViewer, onClose, onRetry, onCopyLink }: PdfViewerModalProps) => {
-  // Download/open-in-new-tab should use the permanent link too - the raw
-  // pdfViewer.url is a signed URL that expires in an hour, which would break
-  // if someone leaves the modal open and clicks it later.
-  const insightId = pdfViewer.insight?._id || pdfViewer.insight?.id;
-  const permanentUrl = insightId ? insightsService.getPermanentPdfUrl(insightId) : null;
+  const permanentUrl = pdfViewer.insight ? insightsService.getPermanentPdfUrl(pdfViewer.insight) : null;
 
   return (
     <AnimatePresence>

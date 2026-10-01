@@ -1,7 +1,7 @@
 {
   "name": "uabc-cms-backend",
   "version": "1.0.0",
-  "description": "Backend server for UABC CMS with MongoDB",
+  "description": "Backend server for UABC CMS (data stored in Cloudflare R2)",
   "main": "server.js",
   "scripts": {
     "build": "echo 'No build step required for Node.js backend'",
@@ -11,7 +11,7 @@
   },
   "keywords": [
     "cms",
-    "mongodb",
+    "cloudflare-r2",
     "express",
     "nodejs"
   ],
@@ -28,12 +28,12 @@
     "express-validator": "^7.0.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.0.3",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
     "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
+    "mongoose": "^8.24.4",
     "nodemon": "^3.0.2"
   }
 }

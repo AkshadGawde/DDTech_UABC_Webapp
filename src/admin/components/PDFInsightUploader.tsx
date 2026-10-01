@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, Calendar, FileText, Image, AlertCircle, Check } from 'lucide-react';
 import { authService } from '../services/authService';
-import { insightsService, type InsightSection } from '../services/insightsService';
+import type { InsightSection } from '../services/insightsService';
 import { SECTION_CONFIG } from '../sections';
 
 interface PDFInsightUploaderProps {
@@ -140,10 +140,6 @@ const PDFInsightUploader: React.FC<PDFInsightUploaderProps> = ({
     setLoading(true);
     
     try {
-      if (section === 'legislation' && !(await insightsService.isLegislationSupported())) {
-        throw new Error('The server is running an older version that does not support Legislation yet, so this upload was blocked to avoid publishing it under Insights. Deploy the latest backend and try again.');
-      }
-
       const formData = new FormData();
       formData.append('pdf', pdfFile);
       formData.append('category', selectedCategory);
